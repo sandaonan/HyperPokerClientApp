@@ -6,30 +6,23 @@ import { TournamentView } from './components/views/TournamentView';
 import { ProfileView } from './components/views/ProfileView';
 import { StatsView } from './components/views/StatsView';
 import { ViewState, User, Club } from './types';
+import { mockApi } from './services/mockApi';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>('login');
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
-  
-  // Mock state for user registrations (Empty by default now)
-  const [myRegistrations, setMyRegistrations] = useState<string[]>([]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    // Logic for new user redirection is handled in LoginView
+    navigateTo('home');
   };
 
   const handleLogout = () => {
+    mockApi.logout();
     setCurrentUser(null);
     setCurrentView('login');
     setSelectedClub(null);
-  };
-
-  const handleRegister = (tournamentId: string) => {
-    if (!myRegistrations.includes(tournamentId)) {
-        setMyRegistrations([...myRegistrations, tournamentId]);
-    }
   };
 
   const navigateTo = (view: ViewState) => {
@@ -37,7 +30,6 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
-  // Improved Club Navigation Logic
   const handleClubNavClick = () => {
     if (selectedClub) {
         navigateTo('tournaments');
@@ -52,8 +44,6 @@ const App: React.FC = () => {
         return (
           <LoginView 
             onLogin={handleLogin} 
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateProfile={() => navigateTo('profile')}
           />
         );
       case 'home':
@@ -63,18 +53,17 @@ const App: React.FC = () => {
               setSelectedClub(club);
               navigateTo('tournaments');
             }}
-            onJoinNew={() => alert("Join Club Flow Mockup")}
+            onJoinNew={() => alert("加入俱樂部流程 (模擬)")}
           />
         );
       case 'tournaments':
         return (
-          currentUser ? (
+          currentUser && selectedClub ? (
             <TournamentView 
               user={currentUser}
-              registeredIds={myRegistrations}
-              onRegister={handleRegister}
+              club={selectedClub} 
               onBack={() => {
-                  setSelectedClub(null); // Clear selection when going back
+                  setSelectedClub(null); 
                   navigateTo('home');
               }}
               onNavigateProfile={() => navigateTo('profile')}
@@ -93,16 +82,12 @@ const App: React.FC = () => {
         );
       case 'my-games':
         return (
-          <StatsView 
-             registeredIds={myRegistrations}
-             onNavigateTournaments={() => {
-                if(selectedClub) {
-                    navigateTo('tournaments');
-                } else {
-                    navigateTo('home');
-                }
-             }} 
-          />
+          currentUser ? (
+            <StatsView 
+              userId={currentUser.id}
+              onNavigateTournaments={() => navigateTo('home')}
+            />
+          ) : null
         );
       default:
         return <div>View not found</div>;
@@ -124,7 +109,7 @@ const App: React.FC = () => {
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'home' || currentView === 'tournaments' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
             >
               <Home size={22} />
-              <span className="text-[10px] font-medium">Clubs</span>
+              <span className="text-[10px] font-medium">俱樂部</span>
             </button>
             
             <button 
@@ -132,7 +117,7 @@ const App: React.FC = () => {
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'my-games' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
             >
               <Ticket size={22} />
-              <span className="text-[10px] font-medium">My Games</span>
+              <span className="text-[10px] font-medium">我的賽事</span>
             </button>
 
             <button 
@@ -140,7 +125,7 @@ const App: React.FC = () => {
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'profile' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
             >
               <UserIcon size={22} />
-              <span className="text-[10px] font-medium">Profile</span>
+              <span className="text-[10px] font-medium">檔案</span>
             </button>
           </div>
         </div>

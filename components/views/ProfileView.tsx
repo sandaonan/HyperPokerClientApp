@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Camera, Upload, CheckCircle, TrendingUp, TrendingDown, LogOut } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, TooltipProps } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Header } from '../ui/Header';
@@ -13,7 +13,7 @@ interface ProfileViewProps {
   onLogout: () => void;
 }
 
-const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const isWin = data.profit > 0;
@@ -32,12 +32,12 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, onLogout }) => {
   const [formData, setFormData] = useState({
-    name: user.name,
-    nationalId: user.nationalId,
-    nickname: user.nickname,
-    mobile: user.mobile,
-    birthday: user.birthday,
-    isForeigner: user.isForeigner,
+    name: user.name || '',
+    nationalId: user.nationalId || '',
+    nickname: user.nickname || '',
+    mobile: user.mobile || '',
+    birthday: user.birthday || '',
+    isForeigner: user.isForeigner || false,
   });
 
   const [activeTab, setActiveTab] = useState<'info' | 'stats' | 'club'>('info');
@@ -47,16 +47,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.nationalId || !formData.mobile) {
-        alert("Please fill in all required fields.");
+    // Basic validation logic - relaxed for testing
+    // In production, you would check regex for ID/Phone
+    if (!formData.name) {
+        alert("請輸入真實姓名");
         return;
     }
+    
     // Simulate API save
     onUpdateUser({
+        ...user, // Keep existing fields
         ...formData,
-        isProfileComplete: true 
+        isProfileComplete: true // Force complete on save
     });
-    alert("Profile Verified & Updated Successfully!");
+    alert("檔案驗證並更新成功！");
   };
 
   // Stats Logic
@@ -76,7 +80,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
     <div className="pb-24">
       <Header />
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">Profile</h2>
+        <h2 className="text-2xl font-bold text-white">個人檔案</h2>
       </div>
       
       {/* Avatar Section */}
@@ -94,9 +98,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           </button>
         </div>
         <div>
-           <h3 className="text-xl font-bold text-white">{formData.nickname || user.name || "New Player"}</h3>
+           <h3 className="text-xl font-bold text-white">{formData.nickname || user.name || "新玩家"}</h3>
            <p className={`text-sm ${user.isProfileComplete ? 'text-emerald-400' : 'text-yellow-500'}`}>
-               {user.isProfileComplete ? 'Verified Player' : 'Setup Required'}
+               {user.isProfileComplete ? '已驗證玩家' : '需設置'}
            </p>
         </div>
       </div>
@@ -107,19 +111,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'info' ? 'text-primary border-b-2 border-primary' : 'text-textMuted hover:text-slate-300'}`}
           onClick={() => setActiveTab('info')}
         >
-          Identity
+          身份資訊
         </button>
         <button
           className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'stats' ? 'text-primary border-b-2 border-primary' : 'text-textMuted hover:text-slate-300'}`}
           onClick={() => setActiveTab('stats')}
         >
-          Statistics
+          數據統計
         </button>
         <button
           className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'club' ? 'text-primary border-b-2 border-primary' : 'text-textMuted hover:text-slate-300'}`}
           onClick={() => setActiveTab('club')}
         >
-          Club Info
+          俱樂部資訊
         </button>
       </div>
 
@@ -134,36 +138,39 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                 <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800 space-y-4">
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                            <CheckCircle size={14} /> Verified Identity
+                            <CheckCircle size={14} /> 已驗證身份
                         </h3>
                         <Lock size={14} className="text-slate-600" />
                     </div>
                     <div>
-                        <label className="text-xs text-slate-500">Legal Name</label>
+                        <label className="text-xs text-slate-500">真實姓名</label>
                         <div className="text-slate-300 font-medium">{user.name}</div>
                     </div>
                     <div>
-                        <label className="text-xs text-slate-500">National ID</label>
+                        <label className="text-xs text-slate-500">身分證字號</label>
                         <div className="text-slate-300 font-medium">{user.nationalId}</div>
+                    </div>
+                    <div className="text-[10px] text-slate-600 italic">
+                        * 若需修改實名資訊，請洽俱樂部櫃台。
                     </div>
                 </div>
             ) : (
                 // Edit View (New User)
                 <div className="p-4 bg-yellow-500/5 rounded-xl border border-yellow-500/20 space-y-4">
                      <div className="flex items-center gap-2 mb-2">
-                         <h3 className="text-sm font-semibold text-yellow-500 uppercase tracking-wider">Identity Setup</h3>
+                         <h3 className="text-sm font-semibold text-yellow-500 uppercase tracking-wider">身份設置</h3>
                      </div>
-                     <p className="text-xs text-textMuted">Please enter your details exactly as shown on your ID card.</p>
+                     <p className="text-xs text-textMuted">請輸入與您身分證件一致的資訊。</p>
                      
                      <Input 
-                        label="Legal Name (Real Name)" 
-                        placeholder="e.g. Wang Xiao Ming"
+                        label="真實姓名" 
+                        placeholder="例：王小明"
                         value={formData.name} 
                         onChange={(e) => handleChange('name', e.target.value)}
                     />
                     <Input 
-                        label="National ID Number" 
-                        placeholder="e.g. A123456789"
+                        label="身分證字號" 
+                        placeholder="例：A123456789"
                         value={formData.nationalId} 
                         onChange={(e) => handleChange('nationalId', e.target.value)}
                     />
@@ -173,19 +180,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
             <div className="h-px bg-slate-800 w-full my-2"></div>
 
             <Input 
-                label="Nickname (Display Name)" 
+                label="暱稱 (顯示名稱)" 
                 value={formData.nickname} 
                 onChange={(e) => handleChange('nickname', e.target.value)}
             />
             
             <Input 
-                label="Mobile Number" 
+                label="手機號碼" 
                 value={formData.mobile} 
                 onChange={(e) => handleChange('mobile', e.target.value)}
             />
             
             <Input 
-                label="Birthday" 
+                label="生日" 
                 type="date"
                 value={formData.birthday} 
                 onChange={(e) => handleChange('birthday', e.target.value)}
@@ -193,21 +200,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
             
             {/* KYC Upload - Enhanced for First Time */}
             <div className="space-y-2 mt-4">
-                <label className="text-xs font-medium text-textMuted">ID Verification (Front/Back)</label>
+                <label className="text-xs font-medium text-textMuted">證件驗證 (正面/反面)</label>
                 {user.kycUploaded ? (
                     <div className="flex items-center gap-2 text-emerald-500 bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20">
                         <CheckCircle size={18} />
-                        <span className="text-sm">Documents Uploaded</span>
+                        <span className="text-sm">證件已上傳</span>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-3">
                          <button className="bg-slate-800 border border-dashed border-slate-700 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-white hover:border-primary hover:bg-primary/5 transition-all group">
                             <Upload size={24} className="group-hover:scale-110 transition-transform" />
-                            <span className="text-xs font-medium">Upload Front</span>
+                            <span className="text-xs font-medium">上傳正面</span>
                          </button>
                          <button className="bg-slate-800 border border-dashed border-slate-700 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-white hover:border-primary hover:bg-primary/5 transition-all group">
                             <Upload size={24} className="group-hover:scale-110 transition-transform" />
-                            <span className="text-xs font-medium">Upload Back</span>
+                            <span className="text-xs font-medium">上傳反面</span>
                          </button>
                     </div>
                 )}
@@ -215,7 +222,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           </div>
 
           <Button fullWidth onClick={handleSave} className="mt-4" size="lg">
-             {user.isProfileComplete ? 'Save Changes' : 'Verify & Complete Setup'}
+             {user.isProfileComplete ? '保存變更' : '驗證並完成設置'}
           </Button>
         </div>
       )}
@@ -223,7 +230,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       {activeTab === 'stats' && (
          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="bg-surfaceHighlight rounded-2xl p-6 border border-slate-800">
-                <p className="text-sm text-slate-400 mb-1">Total Profit</p>
+                <p className="text-sm text-slate-400 mb-1">總盈利</p>
                 <div className="flex items-center gap-3">
                     <h3 className={`text-3xl font-bold font-mono ${isPositive ? 'text-primary' : 'text-danger'}`}>
                         {isPositive ? '+' : ''}{totalProfit.toLocaleString()}
@@ -275,26 +282,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                        <span className="font-bold text-lg">6B</span>
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg">6Bet Poker Club</h3>
-                        <p className="text-xs text-slate-400">Member since 2023</p>
+                        <h3 className="font-bold text-lg">6Bet 撲克俱樂部</h3>
+                        <p className="text-xs text-slate-400">2023 年加入</p>
                     </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <p className="text-xs text-slate-500">Current Tier</p>
+                        <p className="text-xs text-slate-500">當前等級</p>
                         <p className="text-xl font-bold text-white">Platinum</p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs text-slate-500">Total Points</p>
+                        <p className="text-xs text-slate-500">總積分</p>
                         <p className="text-xl font-bold text-primary">3,500</p>
                     </div>
                      <div className="space-y-1">
-                        <p className="text-xs text-slate-500">Referrer ID</p>
+                        <p className="text-xs text-slate-500">推薦人 ID</p>
                         <p className="text-sm font-mono text-white">AGT-009</p>
                     </div>
                      <div className="space-y-1">
-                        <p className="text-xs text-slate-500">Total Buy-ins</p>
+                        <p className="text-xs text-slate-500">總買入</p>
                         <p className="text-sm font-mono text-white">$145,000</p>
                     </div>
                 </div>
@@ -310,7 +317,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-danger hover:bg-danger/10 transition-colors font-medium"
          >
            <LogOut size={18} />
-           Log Out
+           登出
          </button>
       </div>
     </div>
