@@ -11,43 +11,63 @@
         theme: {
           extend: {
             colors: {
-              background: '#020617', // slate-950
-              surface: '#0f172a', // slate-900
-              surfaceHighlight: '#1e293b', // slate-800
-              primary: '#10b981', // emerald-500
-              primaryHover: '#059669', // emerald-600
+              background: '#0a0a0a', // Almost black
+              surface: '#171717', // Neutral 900
+              surfaceHighlight: '#262626', // Neutral 800
+              
+              // Gold / Casino Theme
+              primary: '#d97706', // amber-600
+              primaryHover: '#b45309', // amber-700
+              gold: '#f59e0b', // amber-500
+              goldLight: '#fbbf24', // amber-400
+              
               danger: '#ef4444', // red-500
               warning: '#eab308', // yellow-500
-              textMain: '#f8fafc', // slate-50
-              textMuted: '#94a3b8', // slate-400
+              textMain: '#fafafa', // neutral-50
+              textMuted: '#a3a3a3', // neutral-400
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
+              display: ['Playfair Display', 'serif'],
             },
+            backgroundImage: {
+              'gold-gradient': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              'gold-shine': 'linear-gradient(45deg, transparent 25%, rgba(251, 191, 36, 0.1) 50%, transparent 75%)',
+            }
           },
         },
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+      
       body {
-        background-color: #020617;
-        color: #f8fafc;
+        background-color: #0a0a0a;
+        color: #fafafa;
         font-family: 'Inter', sans-serif;
       }
+      
+      /* Gold Glow Effects */
+      .glow-text {
+        text-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+      }
+      .glow-border {
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);
+      }
+
       /* Custom Scrollbar for dark mode */
       ::-webkit-scrollbar {
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #0f172a; 
+        background: #171717; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155; 
+        background: #404040; 
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #475569; 
+        background: #525252; 
       }
     </style>
   <script type="importmap">

@@ -3,13 +3,14 @@ export type ViewState = 'login' | 'home' | 'tournaments' | 'profile' | 'my-games
 export interface User {
   id: string;
   username: string; // Login ID
-  password?: string; // In real app, this is hashed. Mock app stores plain for demo.
+  password?: string;
   
-  // Profile Fields (Optional at start)
-  name?: string; // Real Name
+  // Profile Fields
+  name?: string; 
   nationalId?: string;
   nickname?: string;
   mobile?: string;
+  mobileVerified?: boolean; // Added for OTP
   birthday?: string;
   isForeigner?: boolean;
   kycUploaded?: boolean;
@@ -26,14 +27,16 @@ export interface Club {
   tier: 'Platinum' | 'Emerald' | 'Diamond' | 'Gold' | 'Silver';
   localId: string;
   currency: string;
-  // Balance/Points removed from here, moved to Wallet
 }
+
+export type MembershipStatus = 'active' | 'pending' | 'banned';
 
 export interface Wallet {
   userId: string;
   clubId: string;
   balance: number;
   points: number;
+  status: MembershipStatus; // Added status
 }
 
 export interface BlindLevel {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Users, ArrowLeft, AlertCircle, Check, Star, Info, MapPin, Wallet as WalletIcon } from 'lucide-react';
+import { Clock, Users, ArrowLeft, Check, Info, MapPin, Wallet as WalletIcon, Coins } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -22,7 +22,6 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
   const [wallet, setWallet] = useState<Wallet | null>(null);
   
   const [detailTournament, setDetailTournament] = useState<Tournament | null>(null);
-  const [showWarning, setShowWarning] = useState(false);
   const [showClubInfo, setShowClubInfo] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -56,9 +55,8 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
     
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
     
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return `${hours}h ${minutes}m`;
   };
 
   const handleRegisterAction = async (type: 'reserve' | 'buy-in') => {
@@ -66,7 +64,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       
       try {
           await mockApi.registerTournament(user.id, detailTournament.id, type);
-          alert(type === 'buy-in' ? "報名成功！已扣除費用。" : "預約成功！請於開賽前至櫃檯報到。");
+          alert(type === 'buy-in' ? "報名成功！已從錢包扣款。" : "預約成功！請於開賽前至櫃檯報到。");
           setDetailTournament(null);
           loadData(); // Refresh list and wallet
       } catch (e: any) {
@@ -76,15 +74,36 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
   const handleCancelAction = async () => {
       if (!detailTournament) return;
-      if (window.confirm("確定要取消嗎？如果是線上扣款將會自動退款至俱樂部錢包。")) {
+      
+      // Determine current status for correct message
+      const reg = myRegistrations.find(r => r.tournamentId === detailTournament.id);
+      const isPaid = reg?.status === 'paid';
+
+      const message = isPaid 
+        ? "【取消報名】\n\n您確定要取消報名嗎？\n\n如果是線上扣款，系統將自動將款項退回至您的俱樂部錢包。\n(注意：部分賽事手續費可能無法退還)"
+        : "【取消預約】\n\n您確定要取消本次賽事的預約嗎？";
+
+      if (window.confirm(message)) {
           try {
             await mockApi.cancelRegistration(user.id, detailTournament.id);
+            alert("已取消。");
             setDetailTournament(null);
             loadData();
           } catch (e: any) {
               alert(e.message);
           }
       }
+  };
+
+  // Logic: Check pending status
+  const isPendingMember = wallet?.status === 'pending';
+
+  const handleCardClick = (t: Tournament) => {
+      if (isPendingMember) {
+          alert("您的會員資格審核中，請至俱樂部櫃檯完成加入手續後方可報名。");
+          return;
+      }
+      setDetailTournament(t);
   };
 
   // Grouping logic
@@ -94,15 +113,16 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
   const renderTournamentCard = (t: Tournament, reg?: Registration) => {
     const isStarted = new Date(t.startTime).getTime() < now.getTime();
-    const isFull = t.reservedCount >= t.maxCap;
     const status = isStarted ? (t.isLateRegEnded ? 'CLOSED' : 'LATE REG') : 'UPCOMING';
+    const totalPrice = t.buyIn + t.fee;
     
+    // Different style for Registered items
     if (reg) {
         return (
             <Card 
               key={t.id} 
-              onClick={() => setDetailTournament(t)}
-              className="border-l-4 border-l-primary bg-primary/5 border-primary/20 cursor-pointer hover:bg-primary/10"
+              onClick={() => handleCardClick(t)}
+              className="border-l-4 border-l-gold bg-gold/5 border-gold/30 cursor-pointer hover:bg-gold/10 transition-colors"
             >
                 <div className="flex justify-between items-start mb-2">
                     <h3 className="font-bold text-lg text-white">{t.name}</h3>
@@ -112,12 +132,12 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 </div>
                 <div className="flex items-center gap-2 text-sm text-textMuted mb-2">
                      <Clock size={14} />
-                     <span>開賽時間 {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                     <span>開賽 {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-1.5 mt-2">
-                    <div className="bg-primary h-1.5 rounded-full" style={{width: '100%'}}></div>
+                <div className="w-full bg-slate-800 rounded-full h-1 mt-2 overflow-hidden">
+                    <div className="bg-gold h-1 rounded-full animate-pulse" style={{width: '100%'}}></div>
                 </div>
-                <p className="text-xs text-primary mt-2 flex items-center gap-1">
+                <p className="text-xs text-gold mt-2 flex items-center gap-1 font-bold">
                     <Check size={12} /> 請準時參賽
                 </p>
             </Card>
@@ -127,38 +147,38 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
     return (
         <Card 
           key={t.id} 
-          onClick={() => setDetailTournament(t)}
-          className={`border-l-4 ${status === 'CLOSED' ? 'border-l-slate-600 opacity-60' : 'border-l-slate-600'} cursor-pointer hover:bg-surfaceHighlight/80`}
+          onClick={() => handleCardClick(t)}
+          className={`border-l-4 ${status === 'CLOSED' ? 'border-l-slate-700 opacity-50' : 'border-l-slate-600'} cursor-pointer hover:bg-surfaceHighlight/80 transition-all hover:border-l-gold hover:shadow-lg`}
         >
         <div className="flex justify-between items-start mb-2">
-            <h3 className="font-bold text-lg text-white">{t.name}</h3>
+            <h3 className="font-bold text-lg text-white font-display tracking-wide">{t.name}</h3>
             {status === 'CLOSED' && <Badge variant="default">已截止</Badge>}
             {status === 'LATE REG' && <Badge variant="warning">延遲註冊</Badge>}
             {status === 'UPCOMING' && <Badge variant="outline">即將開始</Badge>}
         </div>
 
         <div className="flex items-center gap-4 text-sm text-slate-300 mb-4">
-            <div className="flex items-center gap-1.5">
-            <span className="text-emerald-400 font-bold">${t.buyIn}</span>
-            <span className="text-slate-500">+ {t.fee}</span>
+            <div className="flex items-center gap-1.5 bg-slate-800/50 px-2 py-1 rounded">
+                <Coins size={14} className="text-gold" />
+                <span className="text-white font-mono font-bold">${totalPrice.toLocaleString()}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-            <span className="bg-slate-800 px-1.5 py-0.5 rounded text-xs">{(t.startingChips / 1000)}k 記分牌</span>
+            <div className="flex items-center gap-1.5 text-xs text-textMuted">
+                <span>{(t.startingChips / 1000)}k Chips</span>
             </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4 text-xs text-textMuted">
+        <div className="grid grid-cols-2 gap-4 text-xs text-textMuted border-t border-slate-800/50 pt-3">
             <div className="flex items-center gap-2">
             <Clock size={14} />
             {isStarted ? (
                 <span>已開始 {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             ) : (
-                <span className="font-mono text-white">{formatCountdown(t.startTime)}</span>
+                <span className="font-mono text-gold">{formatCountdown(t.startTime)}</span>
             )}
             </div>
             <div className="flex items-center gap-2">
             <Users size={14} />
-            <span>{t.reservedCount} / {t.maxCap} 玩家</span>
+            <span>{t.reservedCount} / {t.maxCap} Regs</span>
             </div>
         </div>
         </Card>
@@ -168,9 +188,9 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
   return (
     <div className="pb-24">
       {/* Top Banner Section */}
-      <div className="relative w-full h-48 bg-slate-800">
+      <div className="relative w-full h-56 bg-slate-900 overflow-hidden">
          {club.bannerUrl && (
-             <img src={club.bannerUrl} className="w-full h-full object-cover opacity-60" alt="Club Banner" />
+             <img src={club.bannerUrl} className="w-full h-full object-cover opacity-50" alt="Club Banner" />
          )}
          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
          
@@ -178,31 +198,36 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             <ArrowLeft size={20} />
          </button>
          
-         {/* Wallet Info Display */}
+         {/* Wallet Info Display - Highlighted for Casino Feel */}
          {wallet && (
-             <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md rounded-xl p-2 px-3 border border-white/10 z-10">
-                 <div className="flex items-center gap-2">
-                     <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+             <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 border border-amber-500/30 z-10 shadow-lg shadow-black/50">
+                 <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black shadow-inner">
                         <WalletIcon size={16} />
                      </div>
                      <div>
-                         <p className="text-[10px] text-slate-400">錢包餘額</p>
-                         <p className="text-sm font-mono font-bold text-white">${wallet.balance.toLocaleString()}</p>
+                         <p className="text-[10px] text-amber-200 uppercase tracking-wider">Balance</p>
+                         <p className="text-sm font-mono font-bold text-white glow-text">${wallet.balance.toLocaleString()}</p>
                      </div>
                  </div>
+                 {isPendingMember && (
+                     <div className="mt-1 text-[10px] text-center bg-yellow-500/20 text-yellow-500 rounded px-1">
+                         審核中
+                     </div>
+                 )}
              </div>
          )}
 
          <div className="absolute bottom-4 left-4 right-4">
              <div className="flex justify-between items-end">
                  <div>
-                    <h1 className="text-2xl font-bold text-white shadow-black drop-shadow-lg">{club.name}</h1>
+                    <h1 className="text-3xl font-bold text-white shadow-black drop-shadow-lg font-display">{club.name}</h1>
                     <div className="flex items-center gap-2 text-slate-300 text-sm mt-1">
-                        <MapPin size={14} />
+                        <MapPin size={14} className="text-gold" />
                         <span>台北市信義區</span>
                     </div>
                  </div>
-                 <button onClick={() => setShowClubInfo(true)} className="p-2 bg-surfaceHighlight/80 backdrop-blur rounded-full text-primary border border-primary/20">
+                 <button onClick={() => setShowClubInfo(true)} className="p-2 bg-surfaceHighlight/80 backdrop-blur rounded-full text-gold border border-gold/20 hover:bg-gold/10">
                      <Info size={20} />
                  </button>
              </div>
@@ -212,16 +237,16 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       <div className="p-4 space-y-6">
         {/* Intro Text */}
         {club.description && (
-            <div className="bg-surfaceHighlight/50 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed">
-                {club.description}
+            <div className="bg-surfaceHighlight/50 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed italic">
+                "{club.description}"
             </div>
         )}
 
         {/* Schedule List */}
         <div>
-            <div className="flex items-center justify-between mb-2">
-                 <h2 className="text-lg font-bold text-white">今日賽程</h2>
-                 <p className="text-xs text-textMuted">{now.toLocaleDateString()}</p>
+            <div className="flex items-center justify-between mb-4">
+                 <h2 className="text-lg font-bold text-white font-display border-l-4 border-gold pl-3">今日賽程</h2>
+                 <p className="text-xs text-textMuted font-mono">{now.toLocaleDateString()}</p>
             </div>
             
             {loading ? (
@@ -230,14 +255,10 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 <>
                     {myEntries.length > 0 && (
                         <div className="animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
-                            <div className="flex items-center gap-2 mb-3 text-primary">
-                                <Star size={16} fill="currentColor" />
-                                <h3 className="text-sm font-semibold uppercase tracking-wider">我的賽事</h3>
-                            </div>
                             <div className="space-y-3">
                                 {myEntries.map(t => renderTournamentCard(t, myRegistrations.find(r => r.tournamentId === t.id)))}
                             </div>
-                            <div className="h-px bg-slate-800 w-full my-6"></div>
+                            <div className="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent w-full my-6"></div>
                         </div>
                     )}
 
@@ -262,9 +283,9 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       {/* Club Info Modal */}
       <Modal isOpen={showClubInfo} onClose={() => setShowClubInfo(false)} title="關於俱樂部">
           <div className="space-y-4">
-               <div className="bg-slate-800 p-4 rounded-lg">
+               <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                    <h3 className="font-bold text-white text-lg mb-1">{club.name}</h3>
-                   <p className="text-primary">{club.tier} Partner</p>
+                   <p className="text-gold">{club.tier} Partner</p>
                </div>
                <div className="space-y-2 text-sm text-slate-300">
                    <p>📍 地址：台北市信義區松壽路 12 號 8 樓</p>

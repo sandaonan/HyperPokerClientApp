@@ -14,14 +14,15 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props 
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none disabled:opacity-50 disabled:pointer-events-none';
+  const baseStyles = 'inline-flex items-center justify-center rounded-lg font-bold tracking-wide transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]';
   
   const variants = {
-    primary: 'bg-primary text-slate-900 hover:bg-primaryHover',
-    secondary: 'bg-surfaceHighlight text-textMain hover:bg-slate-700',
-    outline: 'border border-slate-700 text-textMain hover:bg-slate-800',
-    ghost: 'text-textMain hover:bg-slate-800',
-    danger: 'bg-danger text-white hover:bg-red-600',
+    // Gold Gradient for Primary (Casino Vibe)
+    primary: 'bg-gold-gradient text-black shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 border border-amber-400/50',
+    secondary: 'bg-surfaceHighlight text-textMain border border-slate-700 hover:bg-slate-700 hover:border-slate-500',
+    outline: 'border border-amber-600/50 text-amber-500 hover:bg-amber-600/10 hover:border-amber-500',
+    ghost: 'text-textMuted hover:text-white hover:bg-white/5',
+    danger: 'bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20',
   };
 
   const sizes = {
