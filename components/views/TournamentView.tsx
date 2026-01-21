@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Clock, Users, ArrowLeft, Check, Info, MapPin, Wallet as WalletIcon, Coins } from 'lucide-react';
+import { Clock, Users, ArrowLeft, Check, Info, MapPin, Wallet as WalletIcon, Coins, Calendar } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -49,17 +50,6 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
     return () => clearInterval(timer);
   }, [club.id, user.id]);
 
-  const formatCountdown = (targetDate: string) => {
-    const diff = new Date(targetDate).getTime() - now.getTime();
-    if (diff <= 0) return null; // Already started
-    
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
-  };
-
   const handleRegisterAction = async (type: 'reserve' | 'buy-in') => {
       if (!detailTournament) return;
       
@@ -107,6 +97,59 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       setDetailTournament(t);
   };
 
+  // Helper for Date/Time Display
+  const renderTimeDisplay = (startTimeIso: string) => {
+      const start = new Date(startTimeIso);
+      const diffMs = start.getTime() - now.getTime();
+      const isStarted = diffMs < 0;
+      
+      // Format: "14:00"
+      const timeStr = start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+      
+      // Check if it is today
+      const isToday = start.toDateString() === now.toDateString();
+      const dateStr = isToday ? '今天' : start.toLocaleDateString([], {month: 'numeric', day: 'numeric'});
+
+      // Relative Badge Text
+      let badgeText = '';
+      let badgeVariant: 'default' | 'warning' | 'success' | 'danger' = 'default';
+
+      if (isStarted) {
+          const minsAgo = Math.floor(Math.abs(diffMs) / 60000);
+          const hoursAgo = Math.floor(minsAgo / 60);
+          badgeText = hoursAgo > 0 ? `已開始 ${hoursAgo}小時` : `已開始 ${minsAgo}分鐘`;
+          badgeVariant = 'success';
+      } else {
+          const minsUntil = Math.floor(diffMs / 60000);
+          const hoursUntil = Math.floor(minsUntil / 60);
+          
+          if (hoursUntil < 1) {
+              badgeText = `${minsUntil}分鐘後開始`;
+              badgeVariant = 'danger'; // Urgent
+          } else if (hoursUntil < 24) {
+              badgeText = `${hoursUntil}小時後開始`;
+              badgeVariant = 'warning';
+          } else {
+              const days = Math.floor(hoursUntil / 24);
+              badgeText = `${days}天後`;
+              badgeVariant = 'default';
+          }
+      }
+
+      return (
+          <div className="flex flex-col items-end gap-1">
+              <Badge variant={badgeVariant} className="font-bold tracking-wide">
+                  {badgeText}
+              </Badge>
+              <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                  <Calendar size={12} />
+                  <span>{dateStr}</span>
+                  <span className="font-mono text-white font-bold text-sm">{timeStr}</span>
+              </div>
+          </div>
+      );
+  };
+
   // Grouping logic
   const myRegIds = myRegistrations.map(r => r.tournamentId);
   const myEntries = tournaments.filter(t => myRegIds.includes(t.id));
@@ -117,10 +160,6 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
     const status = isStarted ? (t.isLateRegEnded ? 'CLOSED' : 'LATE REG') : 'UPCOMING';
     const totalPrice = t.buyIn + t.fee;
     
-    // Time Strings
-    const exactTime = new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const relativeTime = formatCountdown(t.startTime);
-    
     // Different style for Registered items
     if (reg) {
         return (
@@ -129,21 +168,16 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
               onClick={() => handleCardClick(t)}
               className="border-l-4 border-l-gold bg-gold/5 border-gold/30 cursor-pointer hover:bg-gold/10 transition-colors"
             >
-                <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg text-white">{t.name}</h3>
-                    <Badge variant={reg.status === 'paid' ? 'success' : 'warning'}>
-                        {reg.status === 'paid' ? '已付款' : '已預約'}
-                    </Badge>
+                <div className="flex justify-between items-start mb-3">
+                    <div className="flex flex-col">
+                        <Badge variant={reg.status === 'paid' ? 'success' : 'warning'} className="self-start mb-1">
+                            {reg.status === 'paid' ? '已付款' : '已預約'}
+                        </Badge>
+                        <h3 className="font-bold text-lg text-white">{t.name}</h3>
+                    </div>
+                    {renderTimeDisplay(t.startTime)}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-textMuted mb-2">
-                     <Clock size={14} />
-                     <span className="font-mono text-white">{exactTime}</span>
-                     {relativeTime ? (
-                         <span className="text-gold text-xs">({relativeTime})</span>
-                     ) : (
-                         <span className="text-green-500 text-xs">(已開賽)</span>
-                     )}
-                </div>
+                
                 <div className="w-full bg-slate-800 rounded-full h-1 mt-2 overflow-hidden">
                     <div className="bg-gold h-1 rounded-full animate-pulse" style={{width: '100%'}}></div>
                 </div>
@@ -160,14 +194,19 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
           onClick={() => handleCardClick(t)}
           className={`border-l-4 ${status === 'CLOSED' ? 'border-l-slate-700 opacity-50' : 'border-l-slate-600'} cursor-pointer hover:bg-surfaceHighlight/80 transition-all hover:border-l-gold hover:shadow-lg`}
         >
-        <div className="flex justify-between items-start mb-2">
-            <h3 className="font-bold text-lg text-white font-display tracking-wide">{t.name}</h3>
-            {status === 'CLOSED' && <Badge variant="default">已截止</Badge>}
-            {status === 'LATE REG' && <Badge variant="warning">延遲註冊</Badge>}
-            {status === 'UPCOMING' && <Badge variant="outline">即將開始</Badge>}
+        <div className="flex justify-between items-start mb-3">
+            <div className="flex flex-col gap-1">
+                <div className="flex gap-2">
+                    {status === 'CLOSED' && <Badge variant="default">已截止</Badge>}
+                    {status === 'LATE REG' && <Badge variant="warning">延遲註冊</Badge>}
+                    {t.type && <Badge variant="outline" className="border-slate-700 text-slate-400">{t.type}</Badge>}
+                </div>
+                <h3 className="font-bold text-lg text-white font-display tracking-wide">{t.name}</h3>
+            </div>
+            {renderTimeDisplay(t.startTime)}
         </div>
 
-        <div className="flex items-center gap-4 text-sm text-slate-300 mb-4">
+        <div className="flex items-center gap-4 text-sm text-slate-300 mb-3">
             <div className="flex items-center gap-1.5 bg-slate-800/50 px-2 py-1 rounded">
                 <Coins size={14} className="text-gold" />
                 <span className="text-white font-mono font-bold">${totalPrice.toLocaleString()}</span>
@@ -179,15 +218,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
         <div className="grid grid-cols-2 gap-4 text-xs text-textMuted border-t border-slate-800/50 pt-3">
             <div className="flex items-center gap-2">
-                <Clock size={14} />
-                {isStarted ? (
-                    <span className="text-slate-400">已開始 {exactTime}</span>
-                ) : (
-                    <>
-                        <span className="font-mono text-white text-sm">{exactTime}</span>
-                        <span className="font-mono text-gold text-xs">({relativeTime})</span>
-                    </>
-                )}
+                {/* Extra info can go here */}
             </div>
             <div className="flex items-center gap-2 justify-end">
                 <Users size={14} />
@@ -211,7 +242,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             <ArrowLeft size={20} />
          </button>
          
-         {/* Wallet Info Display - Highlighted for Casino Feel */}
+         {/* Wallet Info Display */}
          {wallet && (
              <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 border border-amber-500/30 z-10 shadow-lg shadow-black/50">
                  <div className="flex items-center gap-3">

@@ -35,9 +35,10 @@ export type MembershipStatus = 'active' | 'pending' | 'banned';
 export interface Wallet {
   userId: string;
   clubId: string;
-  balance: number;
-  points: number;
-  status: MembershipStatus; // Added status
+  balance: number; // 儲值金餘額
+  points: number;  // 積分
+  joinDate: string; // ISO Date Added
+  status: MembershipStatus;
 }
 
 export interface BlindLevel {
@@ -56,13 +57,20 @@ export interface Registration {
   userId: string;
   status: RegistrationStatus;
   timestamp: string;
+  // Mock display info for the list
+  userDisplayName?: string; 
+  userLocalId?: string; 
 }
+
+export type TournamentType = '錦標賽' | '限時錦標賽' | '衛星賽' | '賞金賽';
 
 export interface Tournament {
   id: string;
   clubId: string; // Link to Club
   name: string;
   description?: string;
+  type: TournamentType; // Added
+  promotionNote?: string; // Added: Club formatted text
   buyIn: number;
   fee: number;
   startingChips: number;
@@ -70,6 +78,7 @@ export interface Tournament {
   reservedCount: number; // Calculated field from Registrations
   maxCap: number;
   isLateRegEnded: boolean;
+  lateRegLevel: number; // Added: Level number where reg ends
   structure: BlindLevel[];
 }
 
@@ -78,8 +87,10 @@ export interface GameRecord {
   userId: string;
   date: string; // ISO Date
   gameName: string;
-  clubName: string; // Added
-  buyIn: number;    // Added
-  entryCount: number; // Added (e.g., 2 for double bullet)
-  profit: number; // Can be negative
+  clubName: string; 
+  buyIn: number;    
+  entryCount: number; 
+  seatNumber?: number; // Added
+  profit: number; 
+  type?: TournamentType; // Added for history display
 }

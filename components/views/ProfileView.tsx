@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Lock, Camera, Upload, CheckCircle, LogOut, Smartphone, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Header } from '../ui/Header';
-import { User } from '../../types';
+import { User, Wallet } from '../../types';
+import { mockApi } from '../../services/mockApi';
 
 interface ProfileViewProps {
   user: User;
@@ -68,21 +70,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
     name: user.name || '',
     nationalId: user.nationalId || '',
     nickname: user.nickname || '',
-    mobile: user.mobile || '', // Now loaded from user props, which came from registration
+    mobile: user.mobile || '', 
     birthday: user.birthday || '',
   });
 
   const [activeTab, setActiveTab] = useState<'info' | 'club'>('info');
-  
-  // KYC State
   const [kycUploaded, setKycUploaded] = useState(user.kycUploaded || false);
+  const [myWallet, setMyWallet] = useState<Wallet | null>(null);
+
+  useEffect(() => {
+      // Fetch user's primary wallet for display (assuming Hyper Club c-1 for now)
+      const fetchWallet = async () => {
+          try {
+              const w = await mockApi.getWallet(user.id, 'c-1');
+              setMyWallet(w);
+          } catch(e) {}
+      };
+      if(activeTab === 'club') fetchWallet();
+  }, [activeTab, user.id]);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleReverifyMobile = () => {
-      // Simulate flow
       const newMobile = prompt("請輸入新的手機號碼：");
       if (newMobile) {
           const code = prompt(`驗證碼已發送至 ${newMobile} (模擬碼: 1234)。請輸入：`);
@@ -96,7 +107,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   };
 
   const handleUploadKyc = () => {
-      // Simulate upload
       setTimeout(() => {
           setKycUploaded(true);
           alert("證件上傳成功！");
@@ -109,12 +119,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
         return;
     }
     
-    // Simulate API save
     onUpdateUser({
         ...user, 
         ...formData,
         kycUploaded,
-        // mobileVerified: true // Already true from registration or re-verify
         isProfileComplete: true 
     });
     alert("檔案更新成功！");
@@ -170,7 +178,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="space-y-4">
             
-            {/* Identity & KYC Section Combined */}
+            {/* Identity & KYC Section */}
             <div className="p-5 bg-surfaceHighlight rounded-2xl border border-slate-700 space-y-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-20 h-20 bg-gold/5 rounded-bl-full -mr-4 -mt-4" />
                 
@@ -182,7 +190,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                 </div>
 
                 {user.isProfileComplete ? (
-                    // Read-Only View (Verified)
                     <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -200,7 +207,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         </div>
                     </div>
                 ) : (
-                    // Edit View
                     <div className="space-y-4">
                          <Input 
                             label="真實姓名" 
@@ -215,7 +221,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                             onChange={(e) => handleChange('nationalId', e.target.value)}
                         />
                         
-                        {/* Compact KYC Upload */}
                         <div className="pt-2">
                             <label className="text-xs font-medium text-textMuted mb-2 block">證件驗證</label>
                             {kycUploaded ? (
@@ -256,13 +261,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                 onChange={(e) => handleChange('nickname', e.target.value)}
             />
 
-            {/* Birthday Dropdowns */}
             <BirthdaySelector 
                 value={formData.birthday} 
                 onChange={(val) => handleChange('birthday', val)} 
             />
 
-            {/* Mobile (Disabled with Re-verify) */}
             <div className="space-y-2">
                 <div className="flex justify-between items-center">
                     <label className="text-xs font-medium text-textMuted">手機號碼</label>
@@ -282,9 +285,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                     />
                     <CheckCircle className="absolute top-2.5 right-3 text-emerald-500" size={16} />
                 </div>
-                <p className="text-[10px] text-slate-600">* 手機號碼已於註冊時完成驗證。</p>
             </div>
-            
           </div>
 
           <Button fullWidth onClick={handleSave} className="mt-4 h-12 text-base shadow-gold/20" size="lg">
@@ -302,26 +303,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                     </div>
                     <div>
                         <h3 className="font-bold text-lg font-display">Hyper 俱樂部</h3>
-                        <p className="text-xs text-slate-400">Since 2023</p>
+                        <p className="text-xs text-slate-400">ID: Hyper-888</p>
                     </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-1">
-                        <p className="text-xs text-slate-500 uppercase tracking-wider">Tier</p>
-                        <p className="text-xl font-bold text-white font-display">Platinum</p>
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">會員等級</p>
+                        <p className="text-xl font-bold text-white font-display">白金會員 (Platinum)</p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs text-slate-500 uppercase tracking-wider">Points</p>
-                        <p className="text-xl font-bold text-gold">3,500</p>
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">加入時間</p>
+                        <p className="text-sm font-mono text-white">
+                            {myWallet?.joinDate ? new Date(myWallet.joinDate).toLocaleDateString() : 'Loading...'}
+                        </p>
                     </div>
                      <div className="space-y-1">
-                        <p className="text-xs text-slate-500 uppercase tracking-wider">Referral</p>
-                        <p className="text-sm font-mono text-white">AGT-009</p>
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">儲值金餘額 (Balance)</p>
+                        <p className="text-xl font-bold font-mono text-emerald-400">
+                            ${myWallet?.balance.toLocaleString() ?? 0}
+                        </p>
                     </div>
                      <div className="space-y-1">
-                        <p className="text-xs text-slate-500 uppercase tracking-wider">Total Buy-in</p>
-                        <p className="text-sm font-mono text-white">$145,000</p>
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">積分 (Points)</p>
+                        <p className="text-xl font-bold font-mono text-gold">
+                            {myWallet?.points.toLocaleString() ?? 0} P
+                        </p>
                     </div>
                 </div>
              </div>
@@ -329,7 +336,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       )}
       </div>
 
-      {/* Logout Section */}
       <div className="mt-8 pt-6 border-t border-slate-800">
          <button 
            onClick={onLogout}

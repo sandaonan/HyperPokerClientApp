@@ -65,7 +65,7 @@ class MockApiService {
     users.push(newUser);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     
-    // Seed: Auto-join c-1 as active for demo purposes, but c-2 is not joined
+    // Seed: Auto-join c-1 as active for demo purposes
     this.seedWalletsForUser(newUser.id);
     
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, newUser.id);
@@ -81,10 +81,15 @@ class MockApiService {
   private seedWalletsForUser(userId: string) {
     const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
     
-    // Auto join 6Bet (c-1) with money
-    wallets.push({ userId, clubId: 'c-1', balance: 50000, points: 100, status: 'active' });
-    
-    // NOTE: User is NOT member of c-2 or c-3 initially
+    // Auto join Hyper Club (c-1) with money and Date
+    wallets.push({ 
+        userId, 
+        clubId: 'c-1', 
+        balance: 50000, 
+        points: 100, 
+        status: 'active',
+        joinDate: '2023-01-15T10:00:00Z'
+    });
     
     localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
   }
@@ -111,6 +116,7 @@ class MockApiService {
           clubId,
           balance: 0,
           points: 0,
+          joinDate: new Date().toISOString(),
           status: 'pending' // Start as pending
       };
 
@@ -125,9 +131,11 @@ class MockApiService {
     await delay(300);
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     
+    // Also count mock registrations for better UI data
     return SEED_TOURNAMENTS.filter(t => t.clubId === clubId).map(t => {
+      // Basic logic: base count + dynamic
       const count = registrations.filter(r => r.tournamentId === t.id && r.status !== 'cancelled').length;
-      return { ...t, reservedCount: count };
+      return { ...t, reservedCount: count + 5 }; // +5 mock users for demo
     });
   }
 
@@ -136,10 +144,47 @@ class MockApiService {
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     const myRegs = registrations.filter(r => r.userId === userId && r.status !== 'cancelled');
     
+    // Fill in current user display info if missing
+    const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+    const currentUser = users.find(u => u.id === userId);
+
     return myRegs.map(reg => {
       const tournament = SEED_TOURNAMENTS.find(t => t.id === reg.tournamentId);
+      // Ensure display info exists
+      reg.userDisplayName = currentUser?.nickname || currentUser?.username || 'Me';
+      reg.userLocalId = '888'; // Mock ID for current user
       return { registration: reg, tournament: tournament! };
     });
+  }
+
+  // NEW: Get ALL registrations for a tournament (for the list view)
+  async getTournamentRegistrations(tournamentId: string): Promise<Registration[]> {
+      await delay(400);
+      const allRegs: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
+      const realRegs = allRegs.filter(r => r.tournamentId === tournamentId && r.status !== 'cancelled');
+      
+      const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+
+      // Hydrate Real Users
+      const hydratedReal = realRegs.map(r => {
+          const u = users.find(user => user.id === r.userId);
+          return {
+              ...r,
+              userDisplayName: u?.nickname || u?.username || 'Unknown',
+              userLocalId: u ? '888' : '000' // Simple mock logic
+          };
+      });
+
+      // Generate Mock Users to make the list look busy
+      const mockRegs: Registration[] = [
+          { id: 'mock-1', tournamentId, userId: 'm-1', status: 'reserved', timestamp: new Date().toISOString(), userDisplayName: 'BigBlind_King', userLocalId: '001' },
+          { id: 'mock-2', tournamentId, userId: 'm-2', status: 'paid', timestamp: new Date().toISOString(), userDisplayName: 'PokerFace', userLocalId: '023' },
+          { id: 'mock-3', tournamentId, userId: 'm-3', status: 'paid', timestamp: new Date().toISOString(), userDisplayName: 'AllInJoe', userLocalId: '105' },
+          { id: 'mock-4', tournamentId, userId: 'm-4', status: 'reserved', timestamp: new Date().toISOString(), userDisplayName: 'FishHunter', userLocalId: '099' },
+          { id: 'mock-5', tournamentId, userId: 'm-5', status: 'paid', timestamp: new Date().toISOString(), userDisplayName: 'StackBuilder', userLocalId: '007' },
+      ];
+
+      return [...hydratedReal, ...mockRegs];
   }
 
   async registerTournament(userId: string, tournamentId: string, type: 'reserve' | 'buy-in'): Promise<Registration> {

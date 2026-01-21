@@ -1,3 +1,4 @@
+
 import { Club, Tournament, GameRecord } from './types';
 
 export const LINE_LIFF_ID = 'YOUR_LIFF_ID_HERE'; 
@@ -39,6 +40,10 @@ const MOCK_STRUCTURE = [
   { level: 2, smallBlind: 100, bigBlind: 200, ante: 200, duration: 20 },
   { level: 3, smallBlind: 200, bigBlind: 300, ante: 300, duration: 20 },
   { level: 4, smallBlind: 200, bigBlind: 400, ante: 400, duration: 20 },
+  { level: 5, smallBlind: 300, bigBlind: 600, ante: 600, duration: 20 },
+  { level: 6, smallBlind: 400, bigBlind: 800, ante: 800, duration: 20 },
+  { level: 7, smallBlind: 500, bigBlind: 1000, ante: 1000, duration: 20 },
+  { level: 8, smallBlind: 600, bigBlind: 1200, ante: 1200, duration: 20 },
 ];
 
 export const SEED_TOURNAMENTS: Tournament[] = [
@@ -47,6 +52,8 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     clubId: 'c-1',
     name: '每日深籌賽',
     description: '我們的招牌每日賽事。',
+    type: '錦標賽',
+    promotionNote: '🔥 早鳥優惠：開賽前完成報名，加贈 2,000 籌碼！\n💎 翡翠會員以上免服務費。',
     buyIn: 3000,
     fee: 400,
     startingChips: 20000,
@@ -54,6 +61,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     reservedCount: 0,
     maxCap: 60,
     isLateRegEnded: false,
+    lateRegLevel: 6,
     structure: MOCK_STRUCTURE,
   },
   {
@@ -61,6 +69,8 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     clubId: 'c-1',
     name: '豪客賽',
     description: '專為高額玩家打造。',
+    type: '錦標賽',
+    promotionNote: '包含自助餐點與無限暢飲。',
     buyIn: 10000,
     fee: 1000,
     startingChips: 50000,
@@ -68,6 +78,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     reservedCount: 0,
     maxCap: 20,
     isLateRegEnded: false,
+    lateRegLevel: 8,
     structure: MOCK_STRUCTURE,
   },
   {
@@ -75,6 +86,8 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     clubId: 'c-2', // Different Club
     name: '快速獵人賽',
     description: '快節奏賽事。',
+    type: '賞金賽',
+    promotionNote: '每淘汰一人可獲得 $500 賞金。',
     buyIn: 2000,
     fee: 300,
     startingChips: 15000,
@@ -82,6 +95,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     reservedCount: 0,
     maxCap: 60,
     isLateRegEnded: true,
+    lateRegLevel: 4,
     structure: MOCK_STRUCTURE,
   },
 ];
@@ -95,7 +109,9 @@ export const GAME_HISTORY: GameRecord[] = [
     clubName: 'Hyper 俱樂部',
     buyIn: 3000,
     entryCount: 1,
-    profit: 5400
+    seatNumber: 5,
+    profit: 5400,
+    type: '錦標賽'
   },
   {
     id: 'g-2',
@@ -105,7 +121,9 @@ export const GAME_HISTORY: GameRecord[] = [
     clubName: 'Hyper 俱樂部',
     buyIn: 10000,
     entryCount: 2, // Re-entered once
-    profit: -20000 // Total loss (10000 * 2)
+    seatNumber: 8,
+    profit: -20000, // Total loss (10000 * 2)
+    type: '錦標賽'
   },
   {
     id: 'g-3',
@@ -115,16 +133,20 @@ export const GAME_HISTORY: GameRecord[] = [
     clubName: 'Ace High 台北',
     buyIn: 2000,
     entryCount: 1,
-    profit: 3200
+    seatNumber: 2,
+    profit: 3200,
+    type: '賞金賽'
   },
   {
     id: 'g-4',
     userId: 'u-1',
     date: '2023-10-15T22:00:00Z',
-    gameName: '常規桌 NLH 50/100',
+    gameName: '週末狂歡限時賽',
     clubName: '皇家同花順競技場',
     buyIn: 5000,
     entryCount: 1,
-    profit: 12500
+    seatNumber: 6,
+    profit: 12500,
+    type: '限時錦標賽'
   }
 ];

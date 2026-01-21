@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { Ticket, History, Calendar, Loader2, TrendingUp, TrendingDown, Store, Clock } from 'lucide-react';
+import { Ticket, History, Loader2, TrendingUp, TrendingDown, Store, Clock } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { GAME_HISTORY, SEED_CLUBS } from '../../constants';
+import { GAME_HISTORY, SEED_CLUBS, SEED_TOURNAMENTS } from '../../constants';
 import { Badge } from '../ui/Badge';
 import { Header } from '../ui/Header';
 import { TournamentDetailModal } from './TournamentDetailModal';
@@ -42,7 +43,9 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
   
   // State for Modal
   const [selectedGame, setSelectedGame] = useState<ActiveGame | null>(null);
+  // History Modal State
   const [historyDetailTournament, setHistoryDetailTournament] = useState<Tournament | null>(null);
+  const [historyDetailRegistration, setHistoryDetailRegistration] = useState<Registration | undefined>(undefined);
   
   // Tab State
   const [activeTab, setActiveTab] = useState<'history' | 'stats'>('history');
@@ -107,27 +110,39 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
 
   // Helper to open history detail
   const handleHistoryClick = (game: GameRecord) => {
-      // Find the real club ID if possible from the name
+      // 1. Try to find a matching "Template" from SEED_TOURNAMENTS by name to get rich info (Structure, Type, Notes)
+      const template = SEED_TOURNAMENTS.find(t => t.name === game.gameName) || SEED_TOURNAMENTS[0];
+      
+      // 2. Resolve Club ID
       const clubId = SEED_CLUBS.find(c => c.name === game.clubName)?.id || 'mock-history';
 
-      // Construct a mock tournament object for the modal to display
+      // 3. Construct a complete tournament object using historical data + template metadata
       const mockTournament: Tournament = {
+          ...template, // Spread template to get structure, promotionNote, type, etc.
           id: game.id,
-          clubId: clubId, // Use resolved ID
+          clubId: clubId, 
           name: game.gameName,
           buyIn: game.buyIn,
-          fee: 0, 
-          startingChips: 20000, 
-          startTime: game.date,
-          reservedCount: 0,
-          maxCap: 0,
-          isLateRegEnded: true,
-          structure: [
-             { level: 1, smallBlind: 100, bigBlind: 100, ante: 100, duration: 20 },
-             { level: 2, smallBlind: 100, bigBlind: 200, ante: 200, duration: 20 },
-          ]
+          type: game.type || template.type, // Prefer history type
+          // Important: Overwrite time to the historical date
+          startTime: game.date, 
+          // Historical stats
+          reservedCount: game.entryCount * 10, // Fake total players
+          maxCap: game.entryCount * 10 + 5,
+          isLateRegEnded: true, // History is always ended
       };
+
+      // 4. Create a fake "Registration" object to show the user as "Paid" in the modal
+      const mockReg: Registration = {
+          id: `hist-reg-${game.id}`,
+          tournamentId: game.id,
+          userId: userId,
+          status: 'paid', // Always paid for history
+          timestamp: game.date
+      };
+
       setHistoryDetailTournament(mockTournament);
+      setHistoryDetailRegistration(mockReg);
   };
 
   // Stats Logic
@@ -255,9 +270,16 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                         >
                             <div className="flex justify-between items-start mb-2">
                                 <div>
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                        <Store size={12} className="text-slate-500" />
-                                        <span className="text-xs text-slate-500">{game.clubName}</span>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        {game.type && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-slate-600 text-slate-400">
+                                                {game.type}
+                                            </Badge>
+                                        )}
+                                        <div className="flex items-center gap-1">
+                                            <Store size={12} className="text-slate-500" />
+                                            <span className="text-xs text-slate-500">{game.clubName}</span>
+                                        </div>
                                     </div>
                                     <div className="font-medium text-white group-hover:text-gold transition-colors">{game.gameName}</div>
                                 </div>
@@ -269,7 +291,10 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                             </div>
                             
                             <div className="flex justify-between items-center text-xs text-slate-500 border-t border-slate-800/50 pt-2 mt-2">
-                                <div>{new Date(game.date).toLocaleDateString()}</div>
+                                <div className="flex gap-3">
+                                    <span>{new Date(game.date).toLocaleDateString()}</span>
+                                    {game.seatNumber && <span className="text-gold">座位: {game.seatNumber}號</span>}
+                                </div>
                                 <div className="font-mono">
                                     Buy-in: ${game.buyIn.toLocaleString()} <span className="text-slate-600">x</span> {game.entryCount}
                                 </div>
@@ -343,7 +368,11 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       <TournamentDetailModal 
         tournament={historyDetailTournament} 
         userWallet={null} 
-        onClose={() => setHistoryDetailTournament(null)}
+        registration={historyDetailRegistration}
+        onClose={() => {
+            setHistoryDetailTournament(null);
+            setHistoryDetailRegistration(undefined);
+        }}
         onRegister={() => {}} 
         onCancel={() => {}}
       />
