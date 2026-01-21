@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -26,9 +27,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         return;
     }
 
-    if (mode === 'register' && password !== confirmPassword) {
-        setError("兩次密碼不一致");
-        return;
+    if (mode === 'register') {
+        if (password !== confirmPassword) {
+            setError("兩次密碼不一致");
+            return;
+        }
     }
 
     setLoading(true);
@@ -37,6 +40,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         if (mode === 'login') {
             user = await mockApi.login(username, password);
         } else {
+            // Register without mobile initially
             user = await mockApi.register(username, password);
         }
         onLogin(user);
@@ -45,6 +49,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     } finally {
         setLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+      setMode(mode === 'login' ? 'register' : 'login');
+      setError('');
   };
 
   return (
@@ -94,9 +103,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                     />
-                    <p className="text-xs text-textMuted">
-                        * 註冊後可於個人檔案中完善實名資料。
-                    </p>
                 </div>
              )}
 
@@ -109,10 +115,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
              <div className="pt-2 text-center">
                  <button 
-                    onClick={() => {
-                        setMode(mode === 'login' ? 'register' : 'login');
-                        setError('');
-                    }}
+                    onClick={toggleMode}
                     className="text-xs text-textMuted hover:text-white transition-colors"
                   >
                     {mode === 'login' ? '還沒有帳號？點此註冊' : '已有帳號？返回登入'}

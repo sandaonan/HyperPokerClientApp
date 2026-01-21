@@ -6,11 +6,11 @@ export const LINE_LIFF_ID = 'YOUR_LIFF_ID_HERE';
 export const SEED_CLUBS: Club[] = [
   {
     id: 'c-1',
-    name: '6Bet 撲克俱樂部',
+    name: 'Hyper 俱樂部',
     description: '台北市最頂級的德州撲克競技協會。每週舉辦多場高額賽事。',
-    bannerUrl: 'https://placehold.co/1000x400/450a0a/fbbf24?text=6+BET+LIVE+POKER+SHOW&font=playfair-display', 
+    bannerUrl: 'https://placehold.co/1000x400/450a0a/fbbf24?text=HYPER+POKER+CLUB&font=playfair-display', 
     tier: 'Platinum',
-    localId: '6Bet-888',
+    localId: 'Hyper-888',
     currency: 'USD',
   },
   {
@@ -92,6 +92,9 @@ export const GAME_HISTORY: GameRecord[] = [
     userId: 'u-1',
     date: '2023-10-01T20:00:00Z',
     gameName: '每日深籌賽',
+    clubName: 'Hyper 俱樂部',
+    buyIn: 3000,
+    entryCount: 1,
     profit: 5400
   },
   {
@@ -99,13 +102,19 @@ export const GAME_HISTORY: GameRecord[] = [
     userId: 'u-1',
     date: '2023-10-05T19:00:00Z',
     gameName: '豪客賽',
-    profit: -10000
+    clubName: 'Hyper 俱樂部',
+    buyIn: 10000,
+    entryCount: 2, // Re-entered once
+    profit: -20000 // Total loss (10000 * 2)
   },
   {
     id: 'g-3',
     userId: 'u-1',
     date: '2023-10-10T20:00:00Z',
     gameName: '快速獵人賽',
+    clubName: 'Ace High 台北',
+    buyIn: 2000,
+    entryCount: 1,
     profit: 3200
   },
   {
@@ -113,6 +122,9 @@ export const GAME_HISTORY: GameRecord[] = [
     userId: 'u-1',
     date: '2023-10-15T22:00:00Z',
     gameName: '常規桌 NLH 50/100',
+    clubName: '皇家同花順競技場',
+    buyIn: 5000,
+    entryCount: 1,
     profit: 12500
   }
 ];

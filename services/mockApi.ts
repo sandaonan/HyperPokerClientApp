@@ -1,3 +1,4 @@
+
 import { User, Club, Wallet, Tournament, Registration, RegistrationStatus, MembershipStatus } from '../types';
 import { SEED_CLUBS, SEED_TOURNAMENTS } from '../constants';
 
@@ -43,7 +44,7 @@ class MockApiService {
     return user;
   }
 
-  async register(username: string, password: string): Promise<User> {
+  async register(username: string, password: string, mobile: string = ''): Promise<User> {
     await delay(800);
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
     
@@ -55,9 +56,10 @@ class MockApiService {
       id: `u-${Date.now()}`,
       username,
       password, 
+      mobile, // Can be empty now
+      mobileVerified: false, // Default to false if skipped at registration
       isProfileComplete: false,
       nickname: username,
-      mobileVerified: false
     };
 
     users.push(newUser);

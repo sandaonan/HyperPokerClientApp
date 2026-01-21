@@ -1,34 +1,15 @@
 import React, { useState } from 'react';
-import { Lock, Camera, Upload, CheckCircle, TrendingUp, TrendingDown, LogOut, Smartphone, RefreshCw } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { Lock, Camera, Upload, CheckCircle, LogOut, Smartphone, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Header } from '../ui/Header';
 import { User } from '../../types';
-import { GAME_HISTORY } from '../../constants';
 
 interface ProfileViewProps {
   user: User;
   onUpdateUser: (updates: Partial<User>) => void;
   onLogout: () => void;
 }
-
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    const isWin = data.profit > 0;
-    return (
-      <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-xl z-50">
-        <p className="text-xs text-slate-400 mb-1">{data.date}</p>
-        <p className="text-sm font-bold text-white mb-1">{data.gameName}</p>
-        <p className={`text-sm font-mono font-bold ${isWin ? 'text-primary' : 'text-danger'}`}>
-          {isWin ? '+' : ''}{data.profit.toLocaleString()}
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
 
 // Date Dropdown Component
 const BirthdaySelector = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
@@ -87,41 +68,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
     name: user.name || '',
     nationalId: user.nationalId || '',
     nickname: user.nickname || '',
-    mobile: user.mobile || '',
+    mobile: user.mobile || '', // Now loaded from user props, which came from registration
     birthday: user.birthday || '',
   });
 
-  // Reordered Tabs: Info -> Club -> Stats
-  const [activeTab, setActiveTab] = useState<'info' | 'club' | 'stats'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'club'>('info');
   
   // KYC State
   const [kycUploaded, setKycUploaded] = useState(user.kycUploaded || false);
-  
-  // Mobile Verification State
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [isMobileVerified, setIsMobileVerified] = useState(user.mobileVerified || false);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSendOtp = () => {
-      if (!formData.mobile) {
-          alert("請先輸入手機號碼");
-          return;
-      }
-      setOtpSent(true);
-      alert(`驗證碼已發送至 ${formData.mobile} (模擬碼: 1234)`);
-  };
-
-  const handleVerifyOtp = () => {
-      if (otpCode === '1234') {
-          setIsMobileVerified(true);
-          setOtpSent(false);
-          alert("手機驗證成功！");
-      } else {
-          alert("驗證碼錯誤");
+  const handleReverifyMobile = () => {
+      // Simulate flow
+      const newMobile = prompt("請輸入新的手機號碼：");
+      if (newMobile) {
+          const code = prompt(`驗證碼已發送至 ${newMobile} (模擬碼: 1234)。請輸入：`);
+          if (code === '1234') {
+              handleChange('mobile', newMobile);
+              alert("手機號碼更新並驗證成功！");
+          } else {
+              alert("驗證碼錯誤");
+          }
       }
   };
 
@@ -144,24 +114,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
         ...user, 
         ...formData,
         kycUploaded,
-        mobileVerified: isMobileVerified,
+        // mobileVerified: true // Already true from registration or re-verify
         isProfileComplete: true 
     });
     alert("檔案更新成功！");
   };
-
-  // Stats Logic
-  let cumulative = 0;
-  const chartData = GAME_HISTORY.map(game => {
-    cumulative += game.profit;
-    return {
-      ...game,
-      cumulative,
-      displayDate: new Date(game.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    };
-  });
-  const totalProfit = chartData[chartData.length - 1]?.cumulative || 0;
-  const isPositive = totalProfit >= 0;
 
   return (
     <div className="pb-24">
@@ -192,7 +149,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
         </div>
       </div>
 
-      {/* Tabs - Swapped Stats and Club */}
+      {/* Tabs */}
       <div className="flex border-b border-slate-800 mb-6">
         <button
           className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'info' ? 'text-gold border-b-2 border-gold' : 'text-textMuted hover:text-slate-300'}`}
@@ -205,12 +162,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           onClick={() => setActiveTab('club')}
         >
           俱樂部
-        </button>
-        <button
-          className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'stats' ? 'text-gold border-b-2 border-gold' : 'text-textMuted hover:text-slate-300'}`}
-          onClick={() => setActiveTab('stats')}
-        >
-          數據統計
         </button>
       </div>
 
@@ -268,16 +219,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         <div className="pt-2">
                             <label className="text-xs font-medium text-textMuted mb-2 block">證件驗證</label>
                             {kycUploaded ? (
-                                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg">
-                                    <div className="flex items-center gap-2 text-emerald-400">
-                                        <CheckCircle size={16} />
-                                        <span className="text-sm font-medium">已上傳完畢</span>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg">
+                                        <div className="flex items-center gap-2 text-emerald-400">
+                                            <CheckCircle size={16} />
+                                            <span className="text-sm font-medium">已上傳完畢</span>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => setKycUploaded(false)}
-                                        className="text-xs text-slate-400 underline hover:text-white flex items-center gap-1"
+                                        className="text-xs text-slate-400 underline hover:text-white flex items-center gap-1 self-end"
                                     >
-                                        <RefreshCw size={10} /> 重新上傳
+                                        <RefreshCw size={10} /> 重新上傳證件
                                     </button>
                                 </div>
                             ) : (
@@ -309,52 +262,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                 onChange={(val) => handleChange('birthday', val)} 
             />
 
-            {/* Mobile with OTP */}
+            {/* Mobile (Disabled with Re-verify) */}
             <div className="space-y-2">
-                <label className="text-xs font-medium text-textMuted">手機號碼</label>
-                <div className="flex gap-2">
-                    <div className="relative flex-1">
-                        <Smartphone className="absolute top-2.5 left-3 text-slate-500" size={16} />
-                        <input
-                            className={`w-full bg-surface border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm focus:border-gold outline-none ${isMobileVerified ? 'text-emerald-400' : 'text-white'}`}
-                            value={formData.mobile}
-                            onChange={(e) => {
-                                handleChange('mobile', e.target.value);
-                                setIsMobileVerified(false); // Reset if changed
-                            }}
-                            placeholder="0912345678"
-                            disabled={isMobileVerified}
-                        />
-                        {isMobileVerified && <CheckCircle className="absolute top-2.5 right-3 text-emerald-500" size={16} />}
-                    </div>
-                    {!isMobileVerified && (
-                        <Button 
-                            type="button" 
-                            variant="secondary" 
-                            onClick={handleSendOtp}
-                            disabled={otpSent || !formData.mobile}
-                            className="w-24 shrink-0"
-                        >
-                            {otpSent ? '已發送' : '驗證'}
-                        </Button>
-                    )}
+                <div className="flex justify-between items-center">
+                    <label className="text-xs font-medium text-textMuted">手機號碼</label>
+                    <button 
+                        onClick={handleReverifyMobile}
+                        className="text-[10px] text-primary hover:text-primaryHover underline"
+                    >
+                        重新驗證 / 變更
+                    </button>
                 </div>
-                
-                {otpSent && !isMobileVerified && (
-                    <div className="animate-in fade-in slide-in-from-top-1 mt-2 p-3 bg-slate-900 rounded-lg border border-slate-800">
-                        <p className="text-xs text-textMuted mb-2">請輸入簡訊驗證碼:</p>
-                        <div className="flex gap-2">
-                            <input 
-                                className="flex-1 bg-black border border-slate-700 rounded p-2 text-center tracking-widest text-white outline-none focus:border-gold"
-                                placeholder="----"
-                                value={otpCode}
-                                onChange={(e) => setOtpCode(e.target.value)}
-                                maxLength={4}
-                            />
-                            <Button size="sm" onClick={handleVerifyOtp}>確認</Button>
-                        </div>
-                    </div>
-                )}
+                <div className="relative">
+                    <Smartphone className="absolute top-2.5 left-3 text-slate-500" size={16} />
+                    <input
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-slate-400 cursor-not-allowed"
+                        value={formData.mobile}
+                        disabled
+                    />
+                    <CheckCircle className="absolute top-2.5 right-3 text-emerald-500" size={16} />
+                </div>
+                <p className="text-[10px] text-slate-600">* 手機號碼已於註冊時完成驗證。</p>
             </div>
             
           </div>
@@ -365,16 +293,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
         </div>
       )}
 
-      {/* Swapped order: Club second */}
       {activeTab === 'club' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 shadow-lg">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-black shadow-lg">
-                       <span className="font-bold text-lg">6B</span>
+                       <span className="font-bold text-lg">HY</span>
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg font-display">6Bet 撲克俱樂部</h3>
+                        <h3 className="font-bold text-lg font-display">Hyper 俱樂部</h3>
                         <p className="text-xs text-slate-400">Since 2023</p>
                     </div>
                 </div>
@@ -399,55 +326,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                 </div>
              </div>
         </div>
-      )}
-
-      {/* Swapped order: Stats third */}
-      {activeTab === 'stats' && (
-         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="bg-surfaceHighlight rounded-2xl p-6 border border-slate-700 relative overflow-hidden">
-                <div className="absolute -right-10 -top-10 w-32 h-32 bg-gold/10 rounded-full blur-2xl"></div>
-                <p className="text-sm text-slate-400 mb-1 font-medium">Total Profit</p>
-                <div className="flex items-center gap-3">
-                    <h3 className={`text-3xl font-bold font-mono ${isPositive ? 'text-gold' : 'text-danger'} glow-text`}>
-                        {isPositive ? '+' : ''}{totalProfit.toLocaleString()}
-                    </h3>
-                    {isPositive ? <TrendingUp className="text-gold" /> : <TrendingDown className="text-danger" />}
-                </div>
-            </div>
-
-            <div className="h-[250px] w-full bg-slate-900/50 rounded-2xl p-2 border border-slate-800">
-                <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-                    <XAxis 
-                        dataKey="displayDate" 
-                        stroke="#525252" 
-                        tick={{fontSize: 10}} 
-                        tickLine={false}
-                        axisLine={false}
-                        dy={10}
-                    />
-                    <YAxis 
-                        stroke="#525252" 
-                        tick={{fontSize: 10}} 
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `${value/1000}k`}
-                        dx={-10}
-                    />
-                    <Tooltip content={<CustomTooltip />} cursor={{stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '4 4'}} />
-                    <Line 
-                        type="monotone" 
-                        dataKey="cumulative" 
-                        stroke={isPositive ? '#f59e0b' : '#ef4444'} 
-                        strokeWidth={2}
-                        dot={{fill: '#0f172a', strokeWidth: 2, r: 3}}
-                        activeDot={{r: 5, fill: '#fff', stroke: '#f59e0b'}}
-                    />
-                </LineChart>
-                </ResponsiveContainer>
-            </div>
-         </div>
       )}
       </div>
 

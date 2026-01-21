@@ -90,14 +90,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
                 </h3>
                 <span className="text-xs text-textMuted font-mono">ID: {club.localId}</span>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                  <Badge variant={
-                    club.tier === 'Diamond' ? 'warning' :
-                    club.tier === 'Emerald' ? 'success' : 'default'
-                  }>
-                    {club.tier}
-                  </Badge>
-              </div>
+              {/* Removed Tier Badge as requested */}
             </div>
 
             <div className="flex items-center justify-between text-sm text-textMuted">
@@ -119,7 +112,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
           <h2 className="text-xl font-bold text-white font-display">我的俱樂部</h2>
           <p className="text-sm text-textMuted">您的專屬競技場</p>
         </div>
-        {/* Removed top button as requested */}
       </div>
 
       <div className="space-y-4">

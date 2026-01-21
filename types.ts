@@ -1,3 +1,4 @@
+
 export type ViewState = 'login' | 'home' | 'tournaments' | 'profile' | 'my-games';
 
 export interface User {
@@ -77,5 +78,8 @@ export interface GameRecord {
   userId: string;
   date: string; // ISO Date
   gameName: string;
+  clubName: string; // Added
+  buyIn: number;    // Added
+  entryCount: number; // Added (e.g., 2 for double bullet)
   profit: number; // Can be negative
 }

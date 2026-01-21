@@ -51,12 +51,13 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
   const formatCountdown = (targetDate: string) => {
     const diff = new Date(targetDate).getTime() - now.getTime();
-    if (diff <= 0) return "已開始";
+    if (diff <= 0) return null; // Already started
     
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     
-    return `${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
   };
 
   const handleRegisterAction = async (type: 'reserve' | 'buy-in') => {
@@ -116,6 +117,10 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
     const status = isStarted ? (t.isLateRegEnded ? 'CLOSED' : 'LATE REG') : 'UPCOMING';
     const totalPrice = t.buyIn + t.fee;
     
+    // Time Strings
+    const exactTime = new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const relativeTime = formatCountdown(t.startTime);
+    
     // Different style for Registered items
     if (reg) {
         return (
@@ -132,7 +137,12 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 </div>
                 <div className="flex items-center gap-2 text-sm text-textMuted mb-2">
                      <Clock size={14} />
-                     <span>開賽 {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                     <span className="font-mono text-white">{exactTime}</span>
+                     {relativeTime ? (
+                         <span className="text-gold text-xs">({relativeTime})</span>
+                     ) : (
+                         <span className="text-green-500 text-xs">(已開賽)</span>
+                     )}
                 </div>
                 <div className="w-full bg-slate-800 rounded-full h-1 mt-2 overflow-hidden">
                     <div className="bg-gold h-1 rounded-full animate-pulse" style={{width: '100%'}}></div>
@@ -169,16 +179,19 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
         <div className="grid grid-cols-2 gap-4 text-xs text-textMuted border-t border-slate-800/50 pt-3">
             <div className="flex items-center gap-2">
-            <Clock size={14} />
-            {isStarted ? (
-                <span>已開始 {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-            ) : (
-                <span className="font-mono text-gold">{formatCountdown(t.startTime)}</span>
-            )}
+                <Clock size={14} />
+                {isStarted ? (
+                    <span className="text-slate-400">已開始 {exactTime}</span>
+                ) : (
+                    <>
+                        <span className="font-mono text-white text-sm">{exactTime}</span>
+                        <span className="font-mono text-gold text-xs">({relativeTime})</span>
+                    </>
+                )}
             </div>
-            <div className="flex items-center gap-2">
-            <Users size={14} />
-            <span>{t.reservedCount} / {t.maxCap} Regs</span>
+            <div className="flex items-center gap-2 justify-end">
+                <Users size={14} />
+                <span>{t.reservedCount} / {t.maxCap} Regs</span>
             </div>
         </div>
         </Card>

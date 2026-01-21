@@ -3,6 +3,7 @@ import { Clock, Coins, Users, Wallet as WalletIcon, Check, AlertTriangle, X } fr
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Tournament, Wallet, Registration } from '../../types';
+import { SEED_CLUBS } from '../../constants';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -28,6 +29,14 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const currentBalance = userWallet ? userWallet.balance : 0;
   const canAfford = currentBalance >= totalCost;
   const isFull = tournament.reservedCount >= tournament.maxCap;
+  
+  // Logic to determine if "Ended"
+  // If we don't have an active registration/wallet context, or start time is in the past
+  const startTime = new Date(tournament.startTime).getTime();
+  const isEnded = startTime < new Date().getTime();
+  
+  // Resolve Club Name
+  const clubName = SEED_CLUBS.find(c => c.id === tournament.clubId)?.name || 'Club Event';
 
   const handleBuyInClick = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -58,6 +67,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
         
         {/* Header Info - Gold Theme */}
         <div className="text-center pb-4 border-b border-slate-800">
+           <div className="text-gold text-xs font-bold uppercase tracking-widest mb-1 opacity-80">{clubName}</div>
            <h3 className="text-2xl font-bold text-white mb-2 font-display">{tournament.name}</h3>
            <div className="inline-flex items-center justify-center px-4 py-1 rounded-full bg-gold/10 border border-gold/30">
                <span className="text-gold font-mono text-xl font-bold glow-text">
@@ -124,7 +134,6 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                 fullWidth 
                                 variant="primary" 
                                 onClick={handleBuyInClick}
-                                // Ensure button is clickable even if canAfford is false, so we can show alert
                             >
                                 確認報名
                             </Button>
@@ -156,7 +165,11 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
             </div>
         ) : (
             <div className="space-y-3 pt-2">
-                {isFull ? (
+                {isEnded ? (
+                     <div className="bg-slate-800 p-4 rounded-lg text-slate-400 text-center text-sm border border-slate-700">
+                        此賽事已結束
+                    </div>
+                ) : isFull ? (
                     <div className="bg-yellow-500/10 p-4 rounded-lg text-yellow-500 text-center text-sm border border-yellow-500/20">
                         此賽事名額已滿
                     </div>
