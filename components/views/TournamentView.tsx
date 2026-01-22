@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Users, ArrowLeft, Check, Info, MapPin, Wallet as WalletIcon, Coins, Calendar } from 'lucide-react';
+import { Clock, Users, ArrowLeft, Check, Info, MapPin, Wallet as WalletIcon, Coins, Calendar, ShieldAlert, UserPlus } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -8,6 +8,7 @@ import { Modal } from '../ui/Modal';
 import { User, Tournament, Club, Registration, Wallet } from '../../types';
 import { mockApi } from '../../services/mockApi';
 import { TournamentDetailModal } from './TournamentDetailModal';
+import { useAlert } from '../../contexts/AlertContext';
 
 interface TournamentViewProps {
   user: User;
@@ -17,6 +18,7 @@ interface TournamentViewProps {
 }
 
 export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBack, onNavigateProfile }) => {
+  const { showAlert, showConfirm } = useAlert();
   const [now, setNow] = useState(new Date());
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<Registration[]>([]);
@@ -47,7 +49,11 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
   useEffect(() => {
     loadData();
     const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    const pollTimer = setInterval(loadData, 3000); // Poll for status changes
+    return () => {
+        clearInterval(timer);
+        clearInterval(pollTimer);
+    };
   }, [club.id, user.id]);
 
   const handleRegisterAction = async (type: 'reserve' | 'buy-in') => {
@@ -55,11 +61,16 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       
       try {
           await mockApi.registerTournament(user.id, detailTournament.id, type);
-          alert(type === 'buy-in' ? "報名成功！已從錢包扣款。" : "預約成功！請於開賽前至櫃檯報到。");
-          setDetailTournament(null);
+          if (type === 'buy-in') {
+             await showAlert("報名成功", "費用已從您的俱樂部錢包扣除。");
+             setDetailTournament(null);
+          } else {
+             await showAlert("預約成功", "您已成功預約席位。\n請於開賽前至櫃檯報到繳費，或於此頁面使用餘額扣款報名。");
+             // DO NOT CLOSE MODAL for reserve action
+          }
           loadData(); // Refresh list and wallet
       } catch (e: any) {
-          alert(e.message);
+          await showAlert("操作失敗", e.message);
       }
   };
 
@@ -70,30 +81,31 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       const reg = myRegistrations.find(r => r.tournamentId === detailTournament.id);
       const isPaid = reg?.status === 'paid';
 
-      const message = isPaid 
-        ? "【取消報名】\n\n您確定要取消報名嗎？\n\n如果是線上扣款，系統將自動將款項退回至您的俱樂部錢包。\n(注意：部分賽事手續費可能無法退還)"
-        : "【取消預約】\n\n您確定要取消本次賽事的預約嗎？";
+      // NOTE: Logic change requested - Paid users cannot cancel via App. 
+      // This block guards the logic, though the button should be hidden in UI.
+      if (isPaid) {
+          await showAlert("無法取消", "已付款之報名無法從 App 取消，請洽櫃檯人員。");
+          return;
+      }
 
-      if (window.confirm(message)) {
+      const confirmed = await showConfirm(
+          "取消預約",
+          "您確定要取消本次賽事的預約嗎？"
+      );
+
+      if (confirmed) {
           try {
             await mockApi.cancelRegistration(user.id, detailTournament.id);
-            alert("已取消。");
+            await showAlert("已取消", "您的預約已取消。");
             setDetailTournament(null);
             loadData();
           } catch (e: any) {
-              alert(e.message);
+              await showAlert("錯誤", e.message);
           }
       }
   };
 
-  // Logic: Check pending status
-  const isPendingMember = wallet?.status === 'pending';
-
   const handleCardClick = (t: Tournament) => {
-      if (isPendingMember) {
-          alert("您的會員資格審核中，請至俱樂部櫃檯完成加入手續後方可報名。");
-          return;
-      }
       setDetailTournament(t);
   };
 
@@ -156,9 +168,10 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
   const otherTournaments = tournaments.filter(t => !myRegIds.includes(t.id));
 
   const renderTournamentCard = (t: Tournament, reg?: Registration) => {
-    const isStarted = new Date(t.startTime).getTime() < now.getTime();
-    const status = isStarted ? (t.isLateRegEnded ? 'CLOSED' : 'LATE REG') : 'UPCOMING';
+    // Logic update: Only OPEN or CLOSED.
+    const status = t.isLateRegEnded ? 'CLOSED' : 'OPEN';
     const totalPrice = t.buyIn + t.fee;
+    const isOverCap = t.reservedCount > t.maxCap;
     
     // Different style for Registered items
     if (reg) {
@@ -197,8 +210,11 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
         <div className="flex justify-between items-start mb-3">
             <div className="flex flex-col gap-1">
                 <div className="flex gap-2">
-                    {status === 'CLOSED' && <Badge variant="default">已截止</Badge>}
-                    {status === 'LATE REG' && <Badge variant="warning">延遲註冊</Badge>}
+                    {status === 'CLOSED' ? (
+                        <Badge variant="default">已截止</Badge>
+                    ) : (
+                        <Badge variant="success">開放報名</Badge>
+                    )}
                     {t.type && <Badge variant="outline" className="border-slate-700 text-slate-400">{t.type}</Badge>}
                 </div>
                 <h3 className="font-bold text-lg text-white font-display tracking-wide">{t.name}</h3>
@@ -212,7 +228,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 <span className="text-white font-mono font-bold">${totalPrice.toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-textMuted">
-                <span>{(t.startingChips / 1000)}k Chips</span>
+                <span>起始: {t.startingChips.toLocaleString()}</span>
             </div>
         </div>
 
@@ -222,11 +238,31 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             </div>
             <div className="flex items-center gap-2 justify-end">
                 <Users size={14} />
-                <span>{t.reservedCount} / {t.maxCap} Regs</span>
+                <span className={isOverCap ? 'text-danger font-bold' : ''}>
+                    {t.reservedCount} / {t.maxCap}
+                </span>
             </div>
         </div>
         </Card>
     );
+  };
+
+  const renderStatusBadge = () => {
+      if (!wallet) {
+          return <Badge className="bg-slate-700 text-slate-300">尚未加入</Badge>;
+      }
+      switch (wallet.status) {
+          case 'active':
+              return <Badge variant="success">已加入會員</Badge>;
+          case 'pending':
+              return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">需身份驗證</Badge>;
+          case 'applying':
+              return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 animate-pulse">加入審核中</Badge>;
+          case 'banned':
+              return <Badge variant="danger">已停權</Badge>;
+          default:
+              return null;
+      }
   };
 
   return (
@@ -242,25 +278,23 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             <ArrowLeft size={20} />
          </button>
          
-         {/* Wallet Info Display */}
-         {wallet && (
-             <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 border border-amber-500/30 z-10 shadow-lg shadow-black/50">
-                 <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black shadow-inner">
-                        <WalletIcon size={16} />
-                     </div>
-                     <div>
-                         <p className="text-[10px] text-amber-200 uppercase tracking-wider">Balance</p>
-                         <p className="text-sm font-mono font-bold text-white glow-text">${wallet.balance.toLocaleString()}</p>
-                     </div>
-                 </div>
-                 {isPendingMember && (
-                     <div className="mt-1 text-[10px] text-center bg-yellow-500/20 text-yellow-500 rounded px-1">
-                         審核中
-                     </div>
-                 )}
-             </div>
-         )}
+         {/* Wallet Info Display or Join Status */}
+         <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
+            {renderStatusBadge()}
+            {wallet && wallet.status !== 'banned' && (
+                <div className="bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 border border-amber-500/30 shadow-lg shadow-black/50">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black shadow-inner">
+                            <WalletIcon size={16} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-amber-200 uppercase tracking-wider">Balance</p>
+                            <p className="text-sm font-mono font-bold text-white glow-text">${wallet.balance.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+         </div>
 
          <div className="absolute bottom-4 left-4 right-4">
              <div className="flex justify-between items-end">
@@ -279,14 +313,12 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       </div>
 
       <div className="p-4 space-y-6">
-        {/* Intro Text */}
         {club.description && (
             <div className="bg-surfaceHighlight/50 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed italic">
                 "{club.description}"
             </div>
         )}
 
-        {/* Schedule List */}
         <div>
             <div className="flex items-center justify-between mb-4">
                  <h2 className="text-lg font-bold text-white font-display border-l-4 border-gold pl-3">今日賽程</h2>
@@ -314,7 +346,6 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
         </div>
       </div>
 
-      {/* Modal Logic */}
       <TournamentDetailModal 
         tournament={detailTournament}
         userWallet={wallet}
@@ -324,7 +355,6 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
         onCancel={handleCancelAction}
       />
       
-      {/* Club Info Modal */}
       <Modal isOpen={showClubInfo} onClose={() => setShowClubInfo(false)} title="關於俱樂部">
           <div className="space-y-4">
                <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">

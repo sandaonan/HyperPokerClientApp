@@ -28,9 +28,14 @@ export interface Club {
   tier: 'Platinum' | 'Emerald' | 'Diamond' | 'Gold' | 'Silver';
   localId: string;
   currency: string;
+  feedbackUrl?: string; // Added: External link for feedback
 }
 
-export type MembershipStatus = 'active' | 'pending' | 'banned';
+// active: 正常會員
+// pending: 需身份驗證 (資料修改或新戶)
+// applying: 申請加入審核中
+// banned: 停權
+export type MembershipStatus = 'active' | 'pending' | 'banned' | 'applying';
 
 export interface Wallet {
   userId: string;
@@ -80,6 +85,7 @@ export interface Tournament {
   isLateRegEnded: boolean;
   lateRegLevel: number; // Added: Level number where reg ends
   structure: BlindLevel[];
+  clockUrl?: string; // Added: Link to tournament clock
 }
 
 export interface GameRecord {

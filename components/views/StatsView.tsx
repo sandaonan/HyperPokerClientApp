@@ -8,6 +8,7 @@ import { Header } from '../ui/Header';
 import { TournamentDetailModal } from './TournamentDetailModal';
 import { Tournament, Registration, GameRecord } from '../../types';
 import { mockApi } from '../../services/mockApi';
+import { useAlert } from '../../contexts/AlertContext';
 
 interface StatsViewProps {
   userId: string;
@@ -37,17 +38,15 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTournaments }) => {
+  const { showAlert, showConfirm } = useAlert();
   const [activeGames, setActiveGames] = useState<ActiveGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   
-  // State for Modal
   const [selectedGame, setSelectedGame] = useState<ActiveGame | null>(null);
-  // History Modal State
   const [historyDetailTournament, setHistoryDetailTournament] = useState<Tournament | null>(null);
   const [historyDetailRegistration, setHistoryDetailRegistration] = useState<Registration | undefined>(undefined);
   
-  // Tab State
   const [activeTab, setActiveTab] = useState<'history' | 'stats'>('history');
 
   const loadMyGames = async () => {
@@ -71,18 +70,25 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
   const handleCancelRegistration = async () => {
       if (!selectedGame) return;
       
-      const confirmMsg = selectedGame.registration.status === 'paid' 
-          ? "確定要取消報名嗎？款項將退回至您的俱樂部錢包。" 
-          : "確定要取消預約嗎？";
+      // Update logic: Prevent cancellation of PAID entries
+      if (selectedGame.registration.status === 'paid') {
+          await showAlert("無法取消", "已付款之報名無法從 App 取消，請洽櫃檯人員。");
+          return;
+      }
 
-      if (window.confirm(confirmMsg)) {
+      const confirmed = await showConfirm(
+          "取消預約",
+          "確定要取消預約嗎？"
+      );
+
+      if (confirmed) {
           try {
               await mockApi.cancelRegistration(userId, selectedGame.tournament.id);
-              alert("已取消報名");
+              await showAlert("已取消", "已取消預約");
               setSelectedGame(null);
-              loadMyGames(); // Refresh list
+              loadMyGames(); 
           } catch (e: any) {
-              alert(e.message);
+              await showAlert("錯誤", e.message);
           }
       }
   };
@@ -108,36 +114,28 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       }
   };
 
-  // Helper to open history detail
   const handleHistoryClick = (game: GameRecord) => {
-      // 1. Try to find a matching "Template" from SEED_TOURNAMENTS by name to get rich info (Structure, Type, Notes)
       const template = SEED_TOURNAMENTS.find(t => t.name === game.gameName) || SEED_TOURNAMENTS[0];
-      
-      // 2. Resolve Club ID
       const clubId = SEED_CLUBS.find(c => c.name === game.clubName)?.id || 'mock-history';
 
-      // 3. Construct a complete tournament object using historical data + template metadata
       const mockTournament: Tournament = {
-          ...template, // Spread template to get structure, promotionNote, type, etc.
+          ...template, 
           id: game.id,
           clubId: clubId, 
           name: game.gameName,
           buyIn: game.buyIn,
-          type: game.type || template.type, // Prefer history type
-          // Important: Overwrite time to the historical date
+          type: game.type || template.type, 
           startTime: game.date, 
-          // Historical stats
-          reservedCount: game.entryCount * 10, // Fake total players
+          reservedCount: game.entryCount * 10, 
           maxCap: game.entryCount * 10 + 5,
-          isLateRegEnded: true, // History is always ended
+          isLateRegEnded: true, 
       };
 
-      // 4. Create a fake "Registration" object to show the user as "Paid" in the modal
       const mockReg: Registration = {
           id: `hist-reg-${game.id}`,
           tournamentId: game.id,
           userId: userId,
-          status: 'paid', // Always paid for history
+          status: 'paid', 
           timestamp: game.date
       };
 
@@ -145,7 +143,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       setHistoryDetailRegistration(mockReg);
   };
 
-  // Stats Logic
   let cumulative = 0;
   const chartData = GAME_HISTORY.map(game => {
     cumulative += game.profit;
@@ -165,7 +162,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       <div>
         <h2 className="text-2xl font-bold text-white mb-6">我的賽事</h2>
         
-        {/* Active Section - Fixed at Top */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4 text-primary">
              <Ticket size={18} />
@@ -190,7 +186,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                 >
                    <div className={`absolute top-0 left-0 w-1 h-full ${item.registration.status === 'paid' ? 'bg-emerald-500' : 'bg-yellow-500'}`} />
                    
-                   {/* Club Name */}
                    <div className="flex items-center gap-1.5 mb-1.5">
                        <Store size={12} className="text-slate-500" />
                        <span className="text-xs text-slate-400 font-medium">{getClubName(item.tournament.clubId)}</span>
@@ -203,7 +198,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                       </Badge>
                    </div>
                    
-                   {/* Time Display with Both Exact and Relative */}
                    <div className="flex items-center gap-3 text-sm mb-4 pl-2">
                       <div className="flex items-center gap-2 bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
                           <Clock size={14} className="text-slate-400" />
@@ -238,7 +232,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
           )}
         </div>
 
-        {/* Tabs for History and Stats */}
         <div className="flex border-b border-slate-800 mb-6">
             <button
             className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'history' ? 'text-gold border-b-2 border-gold' : 'text-textMuted hover:text-slate-300'}`}
@@ -254,7 +247,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
             </button>
         </div>
 
-        {/* Content Area */}
         {activeTab === 'history' && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-center gap-2 mb-4 text-slate-400">
@@ -354,7 +346,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
         )}
       </div>
 
-      {/* Active Game Modal */}
       <TournamentDetailModal 
         tournament={selectedGame?.tournament || null} 
         userWallet={null} 
@@ -364,7 +355,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
         onCancel={handleCancelRegistration}
       />
 
-      {/* History Detail Modal (Read Only) */}
       <TournamentDetailModal 
         tournament={historyDetailTournament} 
         userWallet={null} 

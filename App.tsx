@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Home, User as UserIcon, Ticket } from 'lucide-react';
 import { LoginView } from './components/views/LoginView';
@@ -7,8 +8,9 @@ import { ProfileView } from './components/views/ProfileView';
 import { StatsView } from './components/views/StatsView';
 import { ViewState, User, Club } from './types';
 import { mockApi } from './services/mockApi';
+import { AlertProvider } from './contexts/AlertContext';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>('login');
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
@@ -53,7 +55,7 @@ const App: React.FC = () => {
               setSelectedClub(club);
               navigateTo('tournaments');
             }}
-            onJoinNew={() => alert("加入俱樂部流程 (模擬)")}
+            onJoinNew={() => {}}
           />
         );
       case 'tournaments':
@@ -133,5 +135,13 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+const App: React.FC = () => {
+    return (
+        <AlertProvider>
+            <AppContent />
+        </AlertProvider>
+    );
+}
 
 export default App;

@@ -26,9 +26,57 @@ class MockApiService {
     if (!localStorage.getItem(STORAGE_KEYS.TOURNAMENTS)) {
         localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(SEED_TOURNAMENTS));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.WALLETS)) localStorage.setItem(STORAGE_KEYS.WALLETS, '[]');
-    if (!localStorage.getItem(STORAGE_KEYS.REGISTRATIONS)) localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, '[]');
-    if (!localStorage.getItem(STORAGE_KEYS.USERS)) localStorage.setItem(STORAGE_KEYS.USERS, '[]');
+    
+    // Seed Default User for Testing "Active" and "Paid" scenarios
+    if (!localStorage.getItem(STORAGE_KEYS.USERS) || JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS)!).length === 0) {
+        const seedUser: User = {
+            id: 'player1',
+            username: 'player1',
+            password: 'password',
+            name: '測試玩家',
+            nickname: 'ProPlayer',
+            mobile: '0912345678',
+            mobileVerified: true,
+            isProfileComplete: true,
+            nationalId: 'A123456789',
+            birthday: '1990-01-01',
+            kycUploaded: true
+        };
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([seedUser]));
+        
+        // Seed Wallets
+        const seedWallets: Wallet[] = [
+            {
+                userId: 'player1',
+                clubId: 'c-1', // Hyper Club (Original Mock: Pending Verification for demo purposes)
+                balance: 50000, 
+                points: 1200,
+                joinDate: new Date().toISOString(),
+                status: 'pending' // Force Pending to show Verification Alert Scenario
+            },
+            {
+                userId: 'player1',
+                clubId: 'c-2', // Ace High Club (Mock: Fully Active for functional testing)
+                balance: 100000, 
+                points: 500,
+                joinDate: new Date(Date.now() - 86400000 * 30).toISOString(),
+                status: 'active' // Active Status to test Tournament flows
+            }
+        ];
+        localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(seedWallets));
+
+        // Seed a "Paid" registration for T-1 (Open Tournament) to show Paid status
+        const seedReg: Registration = {
+             id: 'reg-seed-1',
+             tournamentId: 't-1',
+             userId: 'player1',
+             status: 'paid',
+             timestamp: new Date().toISOString(),
+             userDisplayName: 'ProPlayer',
+             userLocalId: '888'
+        };
+        localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify([seedReg]));
+    }
   }
 
   // --- Auth ---
@@ -38,7 +86,7 @@ class MockApiService {
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
     const user = users.find(u => u.username === username && u.password === password);
     
-    if (!user) throw new Error("帳號或密碼錯誤");
+    if (!user) throw new Error("帳號或密碼錯誤 (測試帳號: player1 / password)");
     
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, user.id);
     return user;
@@ -65,8 +113,17 @@ class MockApiService {
     users.push(newUser);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     
-    // Seed: Auto-join c-1 as active for demo purposes
-    this.seedWalletsForUser(newUser.id);
+    // Auto-join first club 'c-1' as 'pending' (Need Verification) because profile is empty
+    const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+    wallets.push({
+        userId: newUser.id,
+        clubId: 'c-1',
+        balance: 0,
+        points: 0,
+        joinDate: new Date().toISOString(),
+        status: 'pending' // Needs ID verification
+    });
+    localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
     
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, newUser.id);
     return newUser;
@@ -76,39 +133,81 @@ class MockApiService {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   }
 
-  // --- Wallet & Club Membership ---
+  // --- User Profile Updates ---
 
-  private seedWalletsForUser(userId: string) {
-    const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-    
-    // Auto join Hyper Club (c-1) with money and Date
-    wallets.push({ 
-        userId, 
-        clubId: 'c-1', 
-        balance: 50000, 
-        points: 100, 
-        status: 'active',
-        joinDate: '2023-01-15T10:00:00Z'
-    });
-    
-    localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
+  async updateUserProfile(user: User): Promise<User> {
+      await delay(400);
+      const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+      const index = users.findIndex(u => u.id === user.id);
+      if (index !== -1) {
+          users[index] = user;
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      }
+      return user;
   }
+
+  async updateUserSensitiveData(user: User): Promise<User> {
+      await delay(800);
+      const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+      const index = users.findIndex(u => u.id === user.id);
+      
+      if (index !== -1) {
+          // 1. Update User
+          users[index] = { ...user, isProfileComplete: true };
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+          // 2. Reset ALL Wallets to 'pending'
+          const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+          let walletUpdated = false;
+          const updatedWallets = wallets.map(w => {
+              if (w.userId === user.id) {
+                  walletUpdated = true;
+                  return { ...w, status: 'pending' as MembershipStatus };
+              }
+              return w;
+          });
+
+          if (walletUpdated) {
+              localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(updatedWallets));
+          }
+          
+          return users[index];
+      }
+      throw new Error("User not found");
+  }
+
+  // --- Wallet & Club Membership ---
 
   async getWallet(userId: string, clubId: string): Promise<Wallet | null> {
     await delay(300);
     const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-    // Find wallet implies membership
     const wallet = wallets.find(w => w.userId === userId && w.clubId === clubId);
     return wallet || null;
   }
 
-  // New: Join a club
+  // New method to fetch all wallets for profile view
+  async getAllWallets(userId: string): Promise<Wallet[]> {
+      await delay(300);
+      const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+      return wallets.filter(w => w.userId === userId && w.status !== 'banned');
+  }
+
   async joinClub(userId: string, clubId: string): Promise<Wallet> {
       await delay(600);
+      
+      // 1. Check Profile Completion
+      const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+      const user = users.find(u => u.id === userId);
+      if (!user) throw new Error("User not found");
+
+      if (!user.isProfileComplete || !user.name || !user.nationalId || !user.birthday) {
+          throw new Error("請先至「個人檔案」完成實名資料填寫與證件上傳，方可申請加入俱樂部。");
+      }
+
       const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
       
       if (wallets.find(w => w.userId === userId && w.clubId === clubId)) {
-          throw new Error("您已是該俱樂部會員");
+          throw new Error("您已是該俱樂部會員或是申請審核中");
       }
 
       const newWallet: Wallet = {
@@ -117,11 +216,23 @@ class MockApiService {
           balance: 0,
           points: 0,
           joinDate: new Date().toISOString(),
-          status: 'pending' // Start as pending
+          status: 'applying' // Start as applying
       };
 
       wallets.push(newWallet);
       localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
+
+      // 3. Mock 8-second auto-approval
+      setTimeout(() => {
+          const currentWallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+          const targetIndex = currentWallets.findIndex(w => w.userId === userId && w.clubId === clubId);
+          if (targetIndex !== -1) {
+              currentWallets[targetIndex].status = 'active'; 
+              localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(currentWallets));
+              console.log(`[MockApi] Auto-approved user ${userId} for club ${clubId}`);
+          }
+      }, 8000);
+
       return newWallet;
   }
 
@@ -129,13 +240,20 @@ class MockApiService {
 
   async getTournaments(clubId: string): Promise<Tournament[]> {
     await delay(300);
+    
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     
-    // Also count mock registrations for better UI data
     return SEED_TOURNAMENTS.filter(t => t.clubId === clubId).map(t => {
-      // Basic logic: base count + dynamic
-      const count = registrations.filter(r => r.tournamentId === t.id && r.status !== 'cancelled').length;
-      return { ...t, reservedCount: count + 5 }; // +5 mock users for demo
+      // Basic logic: Count real registrations
+      const realCount = registrations.filter(r => r.tournamentId === t.id && r.status !== 'cancelled').length;
+      
+      // Force T-2 & T-2-2 to be over capacity mock for demo
+      if (t.id === 't-2' || t.id === 't-2-2') {
+          return { ...t, reservedCount: Math.max(t.maxCap + 2, realCount) };
+      }
+
+      // Default mock add-on for others to look lively
+      return { ...t, reservedCount: Math.min(t.maxCap, realCount + 5) };
     });
   }
 
@@ -144,7 +262,6 @@ class MockApiService {
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     const myRegs = registrations.filter(r => r.userId === userId && r.status !== 'cancelled');
     
-    // Fill in current user display info if missing
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
     const currentUser = users.find(u => u.id === userId);
 
@@ -152,12 +269,11 @@ class MockApiService {
       const tournament = SEED_TOURNAMENTS.find(t => t.id === reg.tournamentId);
       // Ensure display info exists
       reg.userDisplayName = currentUser?.nickname || currentUser?.username || 'Me';
-      reg.userLocalId = '888'; // Mock ID for current user
+      reg.userLocalId = '888'; 
       return { registration: reg, tournament: tournament! };
     });
   }
 
-  // NEW: Get ALL registrations for a tournament (for the list view)
   async getTournamentRegistrations(tournamentId: string): Promise<Registration[]> {
       await delay(400);
       const allRegs: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
@@ -171,20 +287,20 @@ class MockApiService {
           return {
               ...r,
               userDisplayName: u?.nickname || u?.username || 'Unknown',
-              userLocalId: u ? '888' : '000' // Simple mock logic
+              userLocalId: u ? '888' : '000'
           };
       });
 
-      // Generate Mock Users to make the list look busy
+      // Generate Mock Users
       const mockRegs: Registration[] = [
-          { id: 'mock-1', tournamentId, userId: 'm-1', status: 'reserved', timestamp: new Date().toISOString(), userDisplayName: 'BigBlind_King', userLocalId: '001' },
-          { id: 'mock-2', tournamentId, userId: 'm-2', status: 'paid', timestamp: new Date().toISOString(), userDisplayName: 'PokerFace', userLocalId: '023' },
-          { id: 'mock-3', tournamentId, userId: 'm-3', status: 'paid', timestamp: new Date().toISOString(), userDisplayName: 'AllInJoe', userLocalId: '105' },
-          { id: 'mock-4', tournamentId, userId: 'm-4', status: 'reserved', timestamp: new Date().toISOString(), userDisplayName: 'FishHunter', userLocalId: '099' },
-          { id: 'mock-5', tournamentId, userId: 'm-5', status: 'paid', timestamp: new Date().toISOString(), userDisplayName: 'StackBuilder', userLocalId: '007' },
+          { id: 'mock-1', tournamentId, userId: 'm-1', status: 'reserved', timestamp: new Date(Date.now() - 100000).toISOString(), userDisplayName: 'BigBlind_King', userLocalId: '001' },
+          { id: 'mock-2', tournamentId, userId: 'm-2', status: 'paid', timestamp: new Date(Date.now() - 200000).toISOString(), userDisplayName: 'PokerFace', userLocalId: '023' },
+          { id: 'mock-3', tournamentId, userId: 'm-3', status: 'paid', timestamp: new Date(Date.now() - 300000).toISOString(), userDisplayName: 'AllInJoe', userLocalId: '105' },
+          { id: 'mock-4', tournamentId, userId: 'm-4', status: 'reserved', timestamp: new Date(Date.now() - 400000).toISOString(), userDisplayName: 'FishHunter', userLocalId: '099' },
+          { id: 'mock-5', tournamentId, userId: 'm-5', status: 'paid', timestamp: new Date(Date.now() - 500000).toISOString(), userDisplayName: 'StackBuilder', userLocalId: '007' },
       ];
 
-      return [...hydratedReal, ...mockRegs];
+      return [...hydratedReal, ...mockRegs].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }
 
   async registerTournament(userId: string, tournamentId: string, type: 'reserve' | 'buy-in'): Promise<Registration> {
@@ -193,12 +309,18 @@ class MockApiService {
     const tournament = SEED_TOURNAMENTS.find(t => t.id === tournamentId);
     if (!tournament) throw new Error("賽事不存在");
 
+    if (tournament.isLateRegEnded) throw new Error("此賽事已截止報名，無法預約。");
+
     const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
     const walletIndex = wallets.findIndex(w => w.userId === userId && w.clubId === tournament.clubId);
 
     // Check Membership
     if (walletIndex === -1) throw new Error("您尚未加入該俱樂部");
-    if (wallets[walletIndex].status === 'pending') throw new Error("會員資格審核中，請至櫃檯完成加入手續");
+    
+    const userWallet = wallets[walletIndex];
+    if (userWallet.status === 'applying') throw new Error("您的入會申請正在審核中，請稍候。");
+    if (userWallet.status === 'pending') throw new Error("您的身份驗證狀態為「待驗證」，請至櫃檯完成真人核對後方可報名。");
+    if (userWallet.status === 'banned') throw new Error("您已被該俱樂部停權。");
 
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     
@@ -208,39 +330,28 @@ class MockApiService {
     if (existingIndex !== -1) {
         const existing = registrations[existingIndex];
         
-        // Upgrade Logic: Reserved -> Paid
         if (existing.status === 'reserved' && type === 'buy-in') {
              const totalCost = tournament.buyIn + tournament.fee;
-       
              if (wallets[walletIndex].balance < totalCost) {
                  throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${wallets[walletIndex]?.balance.toLocaleString() || 0}`);
              }
-             
              wallets[walletIndex].balance -= totalCost;
              localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
 
-             // Update Registration
              existing.status = 'paid';
              localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(registrations));
-             
              return existing;
         }
 
         throw new Error("您已經報名過此賽事");
     }
 
-    // Check Cap
-    const currentCount = registrations.filter(r => r.tournamentId === tournamentId && r.status !== 'cancelled').length;
-    if (currentCount >= tournament.maxCap) throw new Error("賽事名額已滿");
-
-    // Logic for New Registration
+    // Waitlist logic allows over cap
     if (type === 'buy-in') {
        const totalCost = tournament.buyIn + tournament.fee;
-       
        if (wallets[walletIndex].balance < totalCost) {
            throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${wallets[walletIndex]?.balance.toLocaleString() || 0}`);
        }
-       
        wallets[walletIndex].balance -= totalCost;
        localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
     }

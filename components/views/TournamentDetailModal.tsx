@@ -1,12 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { Clock, Coins, Users, Wallet as WalletIcon, Check, AlertTriangle, X, Megaphone, Info, Trophy } from 'lucide-react';
+import { Clock, Coins, Users, Wallet as WalletIcon, Check, AlertTriangle, X, Megaphone, Info, Trophy, Calendar, ShieldCheck, Lock, ExternalLink, List } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Tournament, Wallet, Registration } from '../../types';
 import { SEED_CLUBS } from '../../constants';
 import { mockApi } from '../../services/mockApi';
+import { useAlert } from '../../contexts/AlertContext';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -25,6 +26,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   onRegister,
   onCancel
 }) => {
+  const { showAlert, showConfirm } = useAlert();
   // State for fetching player list
   const [playerList, setPlayerList] = useState<Registration[]>([]);
   const [listTab, setListTab] = useState<'reserved' | 'paid'>('reserved');
@@ -32,12 +34,9 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   useEffect(() => {
       if (tournament) {
           // If it's a history/mock ended tournament, we might not get real API results.
-          // For now, we fetch normal registrations. 
-          // If it is history, the parent component might have passed a dummy tournament ID.
           mockApi.getTournamentRegistrations(tournament.id).then((regs) => {
               setPlayerList(regs);
               
-              // Logic: If tournament is ended, default to 'paid' tab.
               const startTimeObj = new Date(tournament.startTime);
               const isEnded = startTimeObj.getTime() < new Date().getTime();
               
@@ -58,39 +57,61 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const isFull = tournament.reservedCount >= tournament.maxCap;
   const startTimeObj = new Date(tournament.startTime);
   const isEnded = startTimeObj.getTime() < new Date().getTime();
+  const isClosed = tournament.isLateRegEnded; // Specifically for registration logic
   const clubName = SEED_CLUBS.find(c => c.id === tournament.clubId)?.name || 'Club Event';
 
-  // Filter lists
-  // HISTORY LOGIC: If ended, Reserved should be effectively empty (cleared).
-  const reservedPlayers = isEnded ? [] : playerList.filter(r => r.status === 'reserved');
-  // For Paid players in history, we ideally want to show the current user + some mocks if the list is empty
+  // Calculate Total Duration for End Time Display
+  const totalDurationMinutes = tournament.structure.reduce((acc, curr) => acc + curr.duration, 0);
+  const endTimeObj = new Date(startTimeObj.getTime() + totalDurationMinutes * 60000 + (30 * 60000)); // Add 30 mins buffer for breaks
+
+  const reservedList = isEnded ? [] : playerList.filter(r => r.status === 'reserved');
+  // Logic: First 'maxCap' people are Main, rest are Waitlist
+  const mainReservedList = reservedList.slice(0, tournament.maxCap);
+  const waitingList = reservedList.slice(tournament.maxCap);
+
   let paidPlayers = playerList.filter(r => r.status === 'paid');
   
-  // If this is a historical view (registration exists but list is empty because of mock ID mismatch), 
-  // ensure at least the current user shows up in the list if they are 'paid'.
   if (isEnded && paidPlayers.length === 0 && registration && registration.status === 'paid') {
       paidPlayers = [registration];
   }
 
-  const handleBuyInClick = (e: React.MouseEvent) => {
+  const handleBuyInClick = async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (!canAfford) {
-          alert(`餘額不足！\n\n您的儲值金餘額: $${currentBalance.toLocaleString()}\n本次報名需要: $${totalCost.toLocaleString()}\n\n請先至櫃檯儲值。`);
+          // Button is disabled, but just in case
           return;
       }
-      if (window.confirm(`【確認報名】\n\n您即將使用儲值金餘額報名。\n將扣除: $${totalCost.toLocaleString()}\n\n注意：使用線上金流報名後，如需取消，報名費 (Fee) 恕不退還。\n\n是否確定報名？`)) {
+      
+      const confirmed = await showConfirm(
+          "確認報名",
+          `您即將使用儲值金餘額報名。\n將扣除: $${totalCost.toLocaleString()}\n\n注意：使用線上金流報名後，如需取消，報名費 (Fee) 恕不退還。\n\n是否確定報名？`
+      );
+
+      if (confirmed) {
           onRegister('buy-in');
       }
   };
 
-  const handleCancelClick = (e: React.MouseEvent) => {
+  const handleReserveClick = async () => {
+      // If full, warn about waitlist
+      if (isFull) {
+          const confirmed = await showConfirm(
+              "加入候補名單",
+              "目前賽事名額已滿。您確定要加入候補名單嗎？\n\n若有名額釋出，將依照預約順序遞補。"
+          );
+          if(confirmed) onRegister('reserve');
+      } else {
+          onRegister('reserve');
+      }
+  };
+
+  const handleCancelClick = async (e: React.MouseEvent) => {
      e.preventDefault();
      e.stopPropagation();
      onCancel();
   };
 
-  // Logic to calculate cut-off time text
   let accumulatedMinutes = 0;
   
   return (
@@ -102,21 +123,43 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
            <Badge className="mb-2 bg-purple-500/20 text-purple-300 border-purple-500/30">{tournament.type}</Badge>
            <div className="text-gold text-xs font-bold uppercase tracking-widest mb-1 opacity-80 mt-1">{clubName}</div>
            <h3 className="text-2xl font-bold text-white mb-2 font-display">{tournament.name}</h3>
-           <div className="inline-flex items-center justify-center px-4 py-1 rounded-full bg-gold/10 border border-gold/30">
-               <span className="text-gold font-mono text-xl font-bold glow-text">
-                 ${totalCost.toLocaleString()}
-               </span>
-           </div>
            
-           {isEnded && (
-               <div className="mt-2">
-                   <Badge variant="default">已結束</Badge>
+           {isEnded ? (
+               <div className="flex flex-col gap-1 items-center justify-center mt-3 bg-surfaceHighlight/50 p-2 rounded-lg border border-slate-700">
+                   <div className="flex items-center gap-2 text-sm text-slate-300">
+                       <Calendar size={14} className="text-gold" />
+                       <span>{startTimeObj.toLocaleDateString()}</span>
+                   </div>
+                   <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                       <Clock size={12} />
+                       {startTimeObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - {endTimeObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} (預估)
+                   </div>
+               </div>
+           ) : (
+               <div className="inline-flex items-center justify-center px-4 py-1 rounded-full bg-gold/10 border border-gold/30 mt-1">
+                    <span className="text-gold font-mono text-xl font-bold glow-text">
+                        ${totalCost.toLocaleString()}
+                    </span>
+               </div>
+           )}
+
+           {/* Watch Clock Link */}
+           {tournament.clockUrl && !isEnded && (
+               <div className="mt-3">
+                   <a 
+                     href={tournament.clockUrl} 
+                     target="_blank" 
+                     rel="noreferrer"
+                     className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors border border-slate-700 px-3 py-1.5 rounded-full hover:bg-slate-800"
+                   >
+                       <ExternalLink size={12} /> 📺 觀看賽事時鐘
+                   </a>
                </div>
            )}
         </div>
 
         {/* Promotion / Announcement Block */}
-        {tournament.promotionNote && (
+        {tournament.promotionNote && !isEnded && (
             <div className="bg-amber-500/5 border-l-2 border-amber-500 p-3 rounded-r-lg">
                 <div className="flex items-center gap-2 text-amber-500 mb-1">
                     <Megaphone size={14} />
@@ -142,7 +185,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                 <Users size={14} />
                 {isEnded ? "總參賽人數" : "目前參賽"}
              </div>
-             <div className="text-white font-mono text-lg">
+             <div className={`font-mono text-lg ${tournament.reservedCount > tournament.maxCap ? 'text-danger' : 'text-white'}`}>
                  {isEnded ? tournament.reservedCount : `${tournament.reservedCount} / ${tournament.maxCap}`}
              </div>
           </div>
@@ -156,7 +199,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                         onClick={() => setListTab('reserved')}
                         className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'reserved' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800'}`}
                      >
-                        已預約 ({reservedPlayers.length})
+                        已預約 ({reservedList.length})
                      </button>
                  )}
                  <button 
@@ -166,28 +209,51 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     {isEnded ? `已參賽玩家` : `已報名繳費 (${paidPlayers.length})`}
                  </button>
              </div>
-             <div className="p-3 max-h-40 overflow-y-auto">
+             <div className="p-3 max-h-56 overflow-y-auto">
                  {listTab === 'reserved' && !isEnded ? (
-                     reservedPlayers.length > 0 ? (
-                         <div className="grid grid-cols-2 gap-2">
-                             {reservedPlayers.map((p, idx) => {
-                                 const isMe = userWallet && p.userId === userWallet.userId;
-                                 return (
-                                     <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-gold/20 border border-gold/30 text-gold font-bold' : 'text-slate-400 bg-slate-900/50'}`}>
-                                         <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">{idx + 1}</span>
-                                         <span>ID: {p.userLocalId}</span>
-                                         {isMe && <span className="ml-auto text-[10px]">(我)</span>}
+                     reservedList.length > 0 ? (
+                         <div className="space-y-3">
+                             {/* Main List */}
+                             <div className="text-xs text-slate-500 font-bold uppercase mb-1">正選名單 ({mainReservedList.length} / {tournament.maxCap})</div>
+                             <div className="grid grid-cols-2 gap-2">
+                                 {mainReservedList.map((p, idx) => {
+                                     const isMe = userWallet && p.userId === userWallet.userId;
+                                     return (
+                                         <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-gold/20 border border-gold/30 text-gold font-bold' : 'text-slate-400 bg-slate-900/50'}`}>
+                                             <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">{idx + 1}</span>
+                                             <span>ID: {p.userLocalId}</span>
+                                             {isMe && <span className="ml-auto text-[10px]">(我)</span>}
+                                         </div>
+                                     );
+                                 })}
+                             </div>
+                             
+                             {/* Waiting List */}
+                             {waitingList.length > 0 && (
+                                 <div className="pt-2 border-t border-slate-800/50">
+                                     <div className="text-xs text-red-400 font-bold uppercase mb-1 flex items-center gap-1">
+                                         <List size={12} /> 候補名單 ({waitingList.length})
                                      </div>
-                                 );
-                             })}
+                                     <div className="grid grid-cols-2 gap-2">
+                                         {waitingList.map((p, idx) => {
+                                             const isMe = userWallet && p.userId === userWallet.userId;
+                                             return (
+                                                 <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-red-500/20 border border-red-500/30 text-red-300 font-bold' : 'text-slate-500 bg-slate-900/30 dashed-border border-slate-800'}`}>
+                                                     <span className="w-5 h-5 rounded-full bg-red-900/30 flex items-center justify-center text-[10px] text-red-400">W{idx + 1}</span>
+                                                     <span>ID: {p.userLocalId}</span>
+                                                     {isMe && <span className="ml-auto text-[10px]">(我)</span>}
+                                                 </div>
+                                             );
+                                         })}
+                                     </div>
+                                 </div>
+                             )}
                          </div>
                      ) : <p className="text-center text-xs text-slate-500 py-2">尚無預約</p>
                  ) : (
                      paidPlayers.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2">
                             {paidPlayers.map((p, idx) => {
-                                // For history, we might not have userWallet passed correctly if checking purely by ID, 
-                                // but registration.userId helps.
                                 const isMe = (userWallet && p.userId === userWallet.userId) || (registration && p.userId === registration.userId);
                                 return (
                                     <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold' : 'text-slate-400 bg-slate-900/50'}`}>
@@ -238,7 +304,14 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                             >
                                 取消預約
                             </Button>
-                            <Button type="button" fullWidth variant="primary" onClick={handleBuyInClick}>
+                            <Button 
+                                type="button" 
+                                fullWidth 
+                                variant="primary" 
+                                onClick={handleBuyInClick}
+                                disabled={!canAfford}
+                                className={!canAfford ? 'opacity-50' : ''}
+                            >
                                 確認報名
                             </Button>
                         </div>
@@ -253,42 +326,27 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-3">
-                         <Button 
-                            type="button" fullWidth variant="outline" 
-                            onClick={handleCancelClick} 
-                            className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
-                        >
-                            <X size={16} className="mr-2" /> 取消報名
-                        </Button>
+                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800 flex items-center gap-2">
+                         <ShieldCheck size={16} className="text-emerald-500" />
+                         <span className="text-xs text-slate-400">已完成報名，如需異動請洽櫃檯。</span>
                     </div>
                 )}
             </div>
         ) : (
             <div className="space-y-3 pt-2">
-                {isFull ? (
-                    <div className="bg-yellow-500/10 p-4 rounded-lg text-yellow-500 text-center text-sm border border-yellow-500/20">此賽事名額已滿</div>
+                {isClosed ? (
+                     <div className="bg-slate-800 p-4 rounded-lg text-slate-400 text-center text-sm border border-slate-700 flex flex-col items-center gap-2">
+                         <Lock size={16} />
+                         <span>此賽事已截止報名</span>
+                     </div>
                 ) : (
                     <>
-                        <Button 
-                            type="button" fullWidth variant="primary" 
-                            onClick={handleBuyInClick}
-                            className={`h-16 relative overflow-hidden ${!canAfford ? 'opacity-80 grayscale-[0.3]' : ''}`}
-                        >
-                            <div className="flex flex-col items-center justify-center w-full z-10">
-                                <span className="text-base font-bold flex items-center gap-2 uppercase tracking-wide">
-                                    <WalletIcon size={18} /> 立即報名 (扣除餘額)
-                                </span>
-                                {!canAfford && (
-                                    <span className="text-[10px] font-bold text-red-100 bg-red-500/80 px-2 py-0.5 rounded mt-1 flex items-center gap-1 shadow-sm">
-                                        <AlertTriangle size={10} /> 餘額不足 (${currentBalance.toLocaleString()})
-                                    </span>
-                                )}
-                            </div>
+                        <Button type="button" fullWidth variant="secondary" onClick={handleReserveClick} className="h-12 border-amber-500/50 text-amber-500 hover:bg-amber-500/10">
+                            <span className="text-base font-bold">
+                                {isFull ? "加入候補 (Join Waitlist)" : "預約"}
+                            </span>
                         </Button>
-                        <Button type="button" fullWidth variant="secondary" onClick={() => onRegister('reserve')} className="h-12">
-                            <span className="text-sm font-bold">預約席位 (現場繳費)</span>
-                        </Button>
+                        {isFull && <div className="text-center text-[10px] text-slate-500">* 目前名額已滿，您將被列入候補名單。</div>}
                     </>
                 )}
             </div>
@@ -315,7 +373,6 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                        accumulatedMinutes += level.duration;
                        const isCutoff = level.level === tournament.lateRegLevel;
                        
-                       // Calculate absolute cut-off time based on the Start Time (works for history too)
                        const cutoffTime = new Date(startTimeObj.getTime() + (accumulatedMinutes * 60000));
                        const cutoffStr = cutoffTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
