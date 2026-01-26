@@ -43,6 +43,7 @@ export interface NearbyClub {
   longitude: number;
   vicinity: string;
   openNow: boolean;
+  isPartner?: boolean; // New: Determines if booking is allowed via App
   opening_hours?: string[]; // New: Array of daily hours strings
   google_maps_url?: string; // New: Direct link
   website?: string; // New: Official site

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, ChevronRight, Search, Loader2, AlertTriangle, UserCheck, Clock, Map as MapIcon, Navigation, Star, X, Phone, Globe, ChevronDown, ChevronUp, Minus, Locate } from 'lucide-react';
+import { Plus, ChevronRight, Search, Loader2, AlertTriangle, UserCheck, Clock, Map as MapIcon, Navigation, Star, X, Phone, Globe, ChevronDown, ChevronUp, Minus, Locate, BadgeCheck } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Header } from '../ui/Header';
@@ -28,21 +28,25 @@ interface HomeViewProps {
 const LeafletMap: React.FC<{ 
     places: NearbyClub[], 
     selectedPlaceId: string | null, 
-    onSelectPlace: (id: string) => void 
-}> = ({ places, selectedPlaceId, onSelectPlace }) => {
+    onSelectPlace: (id: string) => void,
+    userLocation: { lat: number, lng: number } | null
+}> = ({ places, selectedPlaceId, onSelectPlace, userLocation }) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<{[key: string]: any}>({});
+    const userMarkerRef = useRef<any>(null);
 
     useEffect(() => {
         if (!mapRef.current || window.L === undefined) return;
 
         if (!mapInstance.current) {
-            // Initialize Map centered on Taipei
+            // Initialize Map centered on Taipei or User
+            const initialCenter = userLocation ? [userLocation.lat, userLocation.lng] : [25.040, 121.550];
+            
             mapInstance.current = window.L.map(mapRef.current, {
                 zoomControl: false,
                 attributionControl: false
-            }).setView([25.040, 121.550], 13);
+            }).setView(initialCenter, 13);
 
             // Dark Mode Tiles (CartoDB Dark Matter)
             window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -58,7 +62,6 @@ const LeafletMap: React.FC<{
         }
 
         // --- CRITICAL FIX: ResizeObserver ---
-        // 解決地圖錯位與黑塊問題的核心：監聽容器大小變化並通知 Leaflet 更新
         const resizeObserver = new ResizeObserver(() => {
             if (mapInstance.current) {
                 mapInstance.current.invalidateSize();
@@ -66,30 +69,30 @@ const LeafletMap: React.FC<{
         });
         resizeObserver.observe(mapRef.current);
 
-        // 額外保險：在掛載後延遲執行一次，確保 Modal 動畫結束後地圖能填滿
         setTimeout(() => {
             if (mapInstance.current) {
                 mapInstance.current.invalidateSize();
             }
         }, 300);
-        // ------------------------------------
 
-        // Add Markers
+        // Add Markers (Clubs)
         places.forEach(place => {
             if (!markersRef.current[place.place_id]) {
+                const color = place.isPartner ? '#f59e0b' : '#10b981'; // Gold for Partner, Emerald for others
+                
                 const customIcon = window.L.divIcon({
                     className: 'custom-div-icon',
                     html: `<div style="
-                        background-color: #10b981;
+                        background-color: ${color};
                         width: 12px;
                         height: 12px;
                         border-radius: 50%;
                         border: 2px solid #000;
-                        box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+                        box-shadow: 0 0 10px rgba(0,0,0, 0.5);
                         box-sizing: border-box; 
                     "></div>`,
                     iconSize: [12, 12],
-                    iconAnchor: [6, 6] // Center of 12px
+                    iconAnchor: [6, 6]
                 });
 
                 const marker = window.L.marker([place.latitude, place.longitude], { icon: customIcon })
@@ -105,12 +108,36 @@ const LeafletMap: React.FC<{
         };
     }, []);
 
+    // Effect for User Marker
+    useEffect(() => {
+        if (!mapInstance.current || !window.L) return;
+
+        if (userLocation) {
+            if (userMarkerRef.current) {
+                userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+            } else {
+                // Create Blue Pulsing Dot for User
+                const userIcon = window.L.divIcon({
+                    className: 'user-location-icon',
+                    html: `<div style="position: relative; width: 16px; height: 16px;">
+                             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #3b82f6; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);"></div>
+                             <div style="position: absolute; top: -8px; left: -8px; right: -8px; bottom: -8px; background-color: rgba(59, 130, 246, 0.3); border-radius: 50%; animation: pulse 2s infinite;"></div>
+                           </div>`,
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+                
+                userMarkerRef.current = window.L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, zIndexOffset: 1000 })
+                    .addTo(mapInstance.current);
+            }
+        }
+    }, [userLocation]);
+
     // Effect to handle selection changes (flyTo)
     useEffect(() => {
         if (mapInstance.current && selectedPlaceId) {
             const place = places.find(p => p.place_id === selectedPlaceId);
             if (place) {
-                // Invalidate size before flying to ensure center calculation is correct
                 mapInstance.current.invalidateSize(); 
 
                 mapInstance.current.flyTo([place.latitude, place.longitude], 16, {
@@ -122,18 +149,20 @@ const LeafletMap: React.FC<{
                 Object.keys(markersRef.current).forEach(id => {
                     const marker = markersRef.current[id];
                     const isSelected = id === selectedPlaceId;
-                    
+                    const p = places.find(pl => pl.place_id === id);
+                    const color = p?.isPartner ? '#f59e0b' : '#10b981';
+
                     const iconHtml = isSelected 
-                        ? `<div style="background-color: #f59e0b; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 15px #f59e0b; box-sizing: border-box; position: relative;">
-                             <div style="position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px; border: 1px solid #f59e0b; border-radius: 50%; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+                        ? `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 15px ${color}; box-sizing: border-box; position: relative;">
+                             <div style="position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px; border: 1px solid ${color}; border-radius: 50%; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
                            </div>`
-                        : `<div style="background-color: #10b981; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #000; box-sizing: border-box;"></div>`;
+                        : `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #000; box-sizing: border-box;"></div>`;
                     
                     const newIcon = window.L.divIcon({
                         className: 'custom-div-icon',
                         html: iconHtml,
                         iconSize: isSelected ? [20, 20] : [12, 12],
-                        iconAnchor: isSelected ? [10, 10] : [6, 6] // Adjusted anchors for perfect centering
+                        iconAnchor: isSelected ? [10, 10] : [6, 6] 
                     });
                     
                     marker.setIcon(newIcon);
@@ -143,25 +172,55 @@ const LeafletMap: React.FC<{
         }
     }, [selectedPlaceId, places]);
 
-    // Added style block for the ping animation
+    // Handle center on user
+    const centerOnUser = () => {
+        if (mapInstance.current && userLocation) {
+             mapInstance.current.flyTo([userLocation.lat, userLocation.lng], 15, { animate: true });
+        }
+    };
+
     return (
         <>
             <style>{`
-                @keyframes ping {
-                    75%, 100% {
-                        transform: scale(2);
-                        opacity: 0;
-                    }
-                }
+                @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+                @keyframes pulse { 0% { transform: scale(0.5); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: scale(1.2); opacity: 0; } }
             `}</style>
-            <div ref={mapRef} className="w-full h-full z-0 bg-[#0a0a0a]" />
+            <div className="w-full h-full relative">
+                <div ref={mapRef} className="w-full h-full z-0 bg-[#0a0a0a]" />
+                {userLocation && (
+                    <button 
+                        onClick={centerOnUser}
+                        className="absolute top-4 right-4 z-[400] bg-slate-800 text-white p-2 rounded-lg shadow-lg border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all"
+                    >
+                        <Locate size={20} className="text-blue-400" />
+                    </button>
+                )}
+            </div>
         </>
     );
 };
 
 const ClubMapModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+    const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+             // Request Geolocation
+             if ("geolocation" in navigator) {
+                 navigator.geolocation.getCurrentPosition(
+                     (position) => {
+                         setUserLocation({
+                             lat: position.coords.latitude,
+                             lng: position.coords.longitude
+                         });
+                     },
+                     (err) => console.log("Geolocation denied or error", err)
+                 );
+             }
+        }
+    }, [isOpen]);
 
     // Scroll to selected item in list
     useEffect(() => {
@@ -199,6 +258,7 @@ const ClubMapModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOp
                         places={NEARBY_CLUBS_DATA}
                         selectedPlaceId={selectedPlaceId}
                         onSelectPlace={setSelectedPlaceId}
+                        userLocation={userLocation}
                      />
                      {/* Overlay Gradient for smooth transition */}
                      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none z-10"></div>
@@ -224,8 +284,15 @@ const ClubMapModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOp
                                 className={`rounded-lg border transition-all duration-300 overflow-hidden cursor-pointer ${isSelected ? 'bg-slate-800 border-gold ring-1 ring-gold shadow-lg transform scale-[1.02]' : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800'}`}
                             >
                                 <div className="p-3 flex justify-between items-start">
-                                    <div>
-                                        <h4 className={`text-sm font-bold mb-1 ${isSelected ? 'text-white' : 'text-slate-200'}`}>{place.name}</h4>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h4 className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-200'}`}>{place.name}</h4>
+                                            {place.isPartner && (
+                                                <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px] py-0 px-1.5 flex items-center gap-1 whitespace-nowrap">
+                                                    <BadgeCheck size={10} /> 合作夥伴
+                                                </Badge>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
                                             <MapIcon size={10} /> {place.vicinity}
                                         </p>
@@ -238,7 +305,7 @@ const ClubMapModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOp
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 pl-2">
                                         {isSelected ? <ChevronUp size={16} className="text-slate-500" /> : <ChevronDown size={16} className="text-slate-500" />}
                                     </div>
                                 </div>
@@ -256,7 +323,8 @@ const ClubMapModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOp
                                             >
                                                 <Navigation size={14} /> 導航
                                             </a>
-                                            {place.website && (
+                                            
+                                            {place.website ? (
                                                 <a 
                                                     href={place.website}
                                                     target="_blank"
@@ -266,7 +334,12 @@ const ClubMapModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOp
                                                 >
                                                     <Globe size={14} /> 網站
                                                 </a>
+                                            ) : (
+                                                <button disabled className="bg-slate-700/50 text-slate-500 p-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed">
+                                                    <Globe size={14} /> 無網站
+                                                </button>
                                             )}
+
                                             <button 
                                                 className="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
                                                 onClick={(e) => e.stopPropagation()}

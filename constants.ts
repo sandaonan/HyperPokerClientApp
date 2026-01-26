@@ -53,6 +53,7 @@ export const NEARBY_CLUBS_DATA: NearbyClub[] = [
         longitude: 121.55792,
         vicinity: "松山區",
         openNow: true,
+        isPartner: true, // Partner
         google_maps_url: "https://maps.google.com/?cid=15937494323223013366",
         website: "https://www.facebook.com/CityPokerNJ",
         opening_hours: [
@@ -75,6 +76,7 @@ export const NEARBY_CLUBS_DATA: NearbyClub[] = [
         longitude: 121.5362797,
         vicinity: "中山區",
         openNow: true,
+        isPartner: false, // Not Partner
         google_maps_url: "https://maps.google.com/?cid=17437701764121596692",
         website: "https://ctpclub.com/",
         opening_hours: [
@@ -97,6 +99,7 @@ export const NEARBY_CLUBS_DATA: NearbyClub[] = [
         longitude: 121.5498153,
         vicinity: "松山區",
         openNow: true,
+        isPartner: true, // Partner
         google_maps_url: "https://maps.google.com/?cid=10630448777123954039",
         website: "https://www.facebook.com/Ace8Poker",
         opening_hours: [
@@ -119,6 +122,7 @@ export const NEARBY_CLUBS_DATA: NearbyClub[] = [
         longitude: 121.5171489,
         vicinity: "永和區",
         openNow: true,
+        isPartner: false,
         google_maps_url: "https://maps.google.com/?cid=1119567936603013063",
         website: "https://www.facebook.com/PokerFaceYonghe",
         opening_hours: [
@@ -141,6 +145,7 @@ export const NEARBY_CLUBS_DATA: NearbyClub[] = [
         longitude: 121.5339004,
         vicinity: "新店區",
         openNow: true,
+        isPartner: false,
         google_maps_url: "https://maps.google.com/?cid=10305886980630713657",
         website: "https://www.facebook.com/XDPokerClub",
         opening_hours: [
@@ -163,6 +168,7 @@ export const NEARBY_CLUBS_DATA: NearbyClub[] = [
         longitude: 121.4738877,
         vicinity: "中和區",
         openNow: true,
+        isPartner: false,
         google_maps_url: "https://maps.google.com/?cid=15993883398905387547",
         website: "https://www.facebook.com/CityPokerZH",
         opening_hours: [
