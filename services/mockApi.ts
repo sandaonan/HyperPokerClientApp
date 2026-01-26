@@ -27,8 +27,12 @@ class MockApiService {
         localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(SEED_TOURNAMENTS));
     }
     
-    // Seed Default User for Testing "Active" and "Paid" scenarios
-    if (!localStorage.getItem(STORAGE_KEYS.USERS) || JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS)!).length === 0) {
+    // Load existing users
+    const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+    const player1Exists = users.some(u => u.username === 'player1');
+
+    // Seed Default User "player1" if it doesn't exist
+    if (!player1Exists) {
         const seedUser: User = {
             id: 'player1',
             username: 'player1',
@@ -42,9 +46,15 @@ class MockApiService {
             birthday: '1990-01-01',
             kycUploaded: true
         };
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([seedUser]));
+        users.push(seedUser);
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
         
-        // Seed Wallets
+        // Seed Wallets for player1
+        const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+        
+        // Remove old player1 wallets if any (cleanup) and add fresh seed data
+        const otherWallets = wallets.filter(w => w.userId !== 'player1');
+        
         const seedWallets: Wallet[] = [
             {
                 userId: 'player1',
@@ -63,9 +73,15 @@ class MockApiService {
                 status: 'active' // Active Status to test Tournament flows
             }
         ];
-        localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(seedWallets));
+        
+        localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify([...otherWallets, ...seedWallets]));
 
-        // Seed a "Paid" registration for T-1 (Open Tournament) to show Paid status
+        // Seed a "Paid" registration for T-1 for player1
+        const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
+        
+        // Remove old player1 registrations for t-1 if any
+        const otherRegs = registrations.filter(r => !(r.userId === 'player1' && r.tournamentId === 't-1'));
+        
         const seedReg: Registration = {
              id: 'reg-seed-1',
              tournamentId: 't-1',
@@ -75,7 +91,9 @@ class MockApiService {
              userDisplayName: 'ProPlayer',
              userLocalId: '888'
         };
-        localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify([seedReg]));
+        
+        otherRegs.push(seedReg);
+        localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(otherRegs));
     }
   }
 
