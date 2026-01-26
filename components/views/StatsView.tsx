@@ -105,46 +105,26 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       return club ? club.name : 'Unknown Club';
   };
 
+  const renderStateBadge = (t: Tournament) => {
+    const startTime = new Date(t.startTime).getTime();
+    const currentTime = now.getTime();
+    
+    // Mock logic: Assume game lasts 8 hours for 'Ended' visual
+    const isEnded = currentTime > startTime + (8 * 60 * 60 * 1000);
+
+    if (isEnded) {
+        return <Badge className="bg-slate-700 text-slate-400 border border-slate-600">已結束</Badge>;
+    }
+    if (t.isLateRegEnded) {
+        return <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">已截買</Badge>;
+    }
+    return <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">報名中</Badge>;
+};
+
   const renderTimeDisplay = (startTimeIso: string) => {
       const start = new Date(startTimeIso);
-      const diffMs = start.getTime() - now.getTime();
-      const isStarted = diffMs < 0;
-      
       const timeStr = start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-      
-      let badgeText = '';
-      let badgeVariant: 'default' | 'warning' | 'success' | 'danger' = 'default';
-
-      if (isStarted) {
-          const minsAgo = Math.floor(Math.abs(diffMs) / 60000);
-          const hoursAgo = Math.floor(minsAgo / 60);
-          badgeText = hoursAgo > 0 ? `已開始 ${hoursAgo}h` : `已開始 ${minsAgo}m`;
-          badgeVariant = 'success';
-      } else {
-          const minsUntil = Math.floor(diffMs / 60000);
-          const hoursUntil = Math.floor(minsUntil / 60);
-          
-          if (hoursUntil < 1) {
-              badgeText = `${minsUntil}分後`;
-              badgeVariant = 'danger';
-          } else if (hoursUntil < 24) {
-              badgeText = `${hoursUntil}小時後`;
-              badgeVariant = 'warning';
-          } else {
-              const days = Math.floor(hoursUntil / 24);
-              badgeText = `${days}天後`;
-              badgeVariant = 'default';
-          }
-      }
-
-      return (
-          <div className="flex items-center gap-2 shrink-0">
-              <div className="font-mono text-white font-bold text-sm">{timeStr}</div>
-              <Badge variant={badgeVariant} className="font-bold tracking-wide text-[10px] px-1.5 py-0">
-                  {badgeText}
-              </Badge>
-          </div>
-      );
+      return <div className="font-mono text-white font-bold text-sm">{timeStr}</div>;
   };
 
   const handleHistoryClick = (game: GameRecord) => {
@@ -263,7 +243,10 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                                <div className="flex justify-between items-center mb-2 gap-2">
                                     <div className="flex flex-col gap-1 overflow-hidden">
                                          <h4 className="font-bold text-white text-base truncate">{item.tournament.name}</h4>
-                                         <div className="flex items-center gap-1.5">
+                                         <div className="flex items-center gap-1.5 flex-wrap">
+                                             {/* Status Badge Added */}
+                                             {renderStateBadge(item.tournament)}
+                                             <div className="h-3 w-px bg-slate-700 mx-0.5"></div>
                                              {/* Type Badge Restored */}
                                              {item.tournament.type && (
                                                 <span className="text-[10px] text-slate-300 border border-slate-600 rounded px-1.5 py-[1px] bg-slate-800/50">

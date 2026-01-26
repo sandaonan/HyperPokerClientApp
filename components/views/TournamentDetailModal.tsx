@@ -1,11 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { Clock, Coins, Users, Wallet as WalletIcon, Check, AlertTriangle, X, Megaphone, Info, Trophy, Calendar, ShieldCheck, Lock, ExternalLink, List } from 'lucide-react';
+import { Clock, Coins, Users, Wallet as WalletIcon, Check, AlertTriangle, X, Megaphone, Info, Trophy, Calendar, ShieldCheck, Lock, ExternalLink, List, Store, Hourglass, ChevronDown, ChevronUp } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Tournament, Wallet, Registration } from '../../types';
-import { SEED_CLUBS } from '../../constants';
 import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
 
@@ -30,6 +29,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   // State for fetching player list
   const [playerList, setPlayerList] = useState<Registration[]>([]);
   const [listTab, setListTab] = useState<'reserved' | 'paid'>('reserved');
+  const [isPromoExpanded, setIsPromoExpanded] = useState(false);
 
   useEffect(() => {
       if (tournament) {
@@ -58,12 +58,13 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const startTimeObj = new Date(tournament.startTime);
   const isEnded = startTimeObj.getTime() < new Date().getTime();
   const isClosed = tournament.isLateRegEnded; // Specifically for registration logic
-  const clubName = SEED_CLUBS.find(c => c.id === tournament.clubId)?.name || 'Club Event';
 
-  // Calculate Total Duration for End Time Display
+  // Calculate Total Duration
   const totalDurationMinutes = tournament.structure.reduce((acc, curr) => acc + curr.duration, 0);
-  const endTimeObj = new Date(startTimeObj.getTime() + totalDurationMinutes * 60000 + (30 * 60000)); // Add 30 mins buffer for breaks
-
+  const durationHours = Math.floor(totalDurationMinutes / 60);
+  const durationMinsRemainder = totalDurationMinutes % 60;
+  const durationStr = `${durationHours}hr${durationMinsRemainder > 0 ? ` ${durationMinsRemainder}m` : ''}`;
+  
   const reservedList = isEnded ? [] : playerList.filter(r => r.status === 'reserved');
   // Logic: First 'maxCap' people are Main, rest are Waitlist
   const mainReservedList = reservedList.slice(0, tournament.maxCap);
@@ -78,10 +79,13 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const handleBuyInClick = async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!canAfford) {
-          // Button is disabled, but just in case
+      
+      if (isFull) {
+          await showAlert("候補中", "目前賽事名額已滿，請等待名額釋出後再進行報名。");
           return;
       }
+
+      if (!canAfford) return;
       
       const confirmed = await showConfirm(
           "確認報名",
@@ -112,104 +116,133 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
      onCancel();
   };
 
+  // Rule Parsing
+  const promoLines = tournament.promotionNote ? tournament.promotionNote.split('\n') : [];
+  const displayLines = isPromoExpanded ? promoLines : promoLines.slice(0, 3);
+  const hasMoreLines = promoLines.length > 3;
+
   let accumulatedMinutes = 0;
   
   return (
-    <Modal isOpen={!!tournament} onClose={onClose} title={isEnded ? "賽事回顧" : (registration ? "我的報名狀態" : "賽事詳情")}>
+    <Modal isOpen={!!tournament} onClose={onClose} title="賽事詳情">
       <div className="space-y-6">
         
-        {/* Header Info */}
-        <div className="text-center pb-4 border-b border-slate-800 relative">
-           <Badge className="mb-2 bg-purple-500/20 text-purple-300 border-purple-500/30">{tournament.type}</Badge>
-           <div className="text-gold text-xs font-bold uppercase tracking-widest mb-1 opacity-80 mt-1">{clubName}</div>
-           <h3 className="text-2xl font-bold text-white mb-2 font-display">{tournament.name}</h3>
+        {/* New Header Layout */}
+        <div className="relative pb-2 border-b border-slate-800 text-center">
+           {/* Center Top: Tournament Title */}
+           <h3 className="text-2xl font-bold text-white font-display leading-tight px-2">
+               {tournament.name}
+           </h3>
+           {/* Below Title: Badge */}
+           <div className="flex justify-center mt-2">
+               <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 px-3 py-0.5">
+                   {tournament.type}
+               </Badge>
+           </div>
            
-           {isEnded ? (
-               <div className="flex flex-col gap-1 items-center justify-center mt-3 bg-surfaceHighlight/50 p-2 rounded-lg border border-slate-700">
-                   <div className="flex items-center gap-2 text-sm text-slate-300">
-                       <Calendar size={14} className="text-gold" />
-                       <span>{startTimeObj.toLocaleDateString()}</span>
-                   </div>
-                   <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
-                       <Clock size={12} />
-                       {startTimeObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - {endTimeObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} (預估)
-                   </div>
-               </div>
-           ) : (
-               <div className="inline-flex items-center justify-center px-4 py-1 rounded-full bg-gold/10 border border-gold/30 mt-1">
-                    <span className="text-gold font-mono text-xl font-bold glow-text">
-                        ${totalCost.toLocaleString()}
-                    </span>
-               </div>
-           )}
-
-           {/* Watch Clock Link */}
-           {tournament.clockUrl && !isEnded && (
-               <div className="mt-3">
-                   <a 
-                     href={tournament.clockUrl} 
-                     target="_blank" 
-                     rel="noreferrer"
-                     className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors border border-slate-700 px-3 py-1.5 rounded-full hover:bg-slate-800"
-                   >
-                       <ExternalLink size={12} /> 📺 觀看賽事時鐘
-                   </a>
-               </div>
-           )}
+           <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400">
+               <Calendar size={12} className="text-gold" />
+               <span>{startTimeObj.toLocaleDateString()}</span>
+               <span className="text-slate-600">|</span>
+               <Clock size={12} className="text-gold" />
+               <span className="font-mono">{startTimeObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+           </div>
         </div>
 
-        {/* Promotion / Announcement Block */}
-        {tournament.promotionNote && !isEnded && (
-            <div className="bg-amber-500/5 border-l-2 border-amber-500 p-3 rounded-r-lg">
-                <div className="flex items-center gap-2 text-amber-500 mb-1">
-                    <Megaphone size={14} />
-                    <span className="text-xs font-bold uppercase">賽事公告 / 優惠</span>
+        {/* 3-Column Info Grid */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* Col 1: Price */}
+          <div className="bg-surfaceHighlight p-2.5 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-center">
+             <div className="flex items-center gap-1.5 text-slate-400 text-[10px] mb-1 uppercase tracking-wider">
+                <WalletIcon size={12} className="text-gold" />
+                參賽費用
+             </div>
+             <div className="text-gold font-mono text-base font-bold">${totalCost.toLocaleString()}</div>
+          </div>
+          
+          {/* Col 2: Stack */}
+          <div className="bg-surfaceHighlight p-2.5 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-center">
+             <div className="flex items-center gap-1.5 text-slate-400 text-[10px] mb-1 uppercase tracking-wider">
+                <Coins size={12} className="text-gold" />
+                起始計分牌
+             </div>
+             <div className="text-white font-mono text-base font-bold">{tournament.startingChips.toLocaleString()}</div>
+          </div>
+
+          {/* Col 3: Duration */}
+          <div className="bg-surfaceHighlight p-2.5 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-center">
+             <div className="flex items-center gap-1.5 text-slate-400 text-[10px] mb-1 uppercase tracking-wider">
+                <Hourglass size={12} className="text-blue-400" />
+                比賽時長
+             </div>
+             <div className="text-white font-mono text-base font-bold">{durationStr}</div>
+          </div>
+        </div>
+
+        {/* Collapsible Promotion / Announcement Block */}
+        {promoLines.length > 0 && (
+            <div className="bg-amber-500/5 border-l-2 border-amber-500 rounded-r-lg overflow-hidden transition-all duration-300">
+                <div className="flex items-center justify-between p-3 pb-2">
+                    <div className="flex items-center gap-2 text-amber-500">
+                        <Megaphone size={14} />
+                        <span className="text-xs font-bold uppercase">賽事公告與規則</span>
+                    </div>
                 </div>
-                <p className="text-sm text-amber-100/90 whitespace-pre-line leading-relaxed">
-                    {tournament.promotionNote}
-                </p>
+                
+                <div className="px-3 pb-3">
+                    <div className="text-xs text-amber-100/80 whitespace-pre-line leading-relaxed pl-1">
+                        {displayLines.map((line, idx) => (
+                            <div key={idx}>{line}</div>
+                        ))}
+                    </div>
+                    {hasMoreLines && (
+                        <button 
+                            onClick={() => setIsPromoExpanded(!isPromoExpanded)}
+                            className="w-full flex items-center justify-center gap-1 text-[10px] text-amber-500/60 hover:text-amber-500 mt-2 pt-2 border-t border-amber-500/10"
+                        >
+                            {isPromoExpanded ? (
+                                <><ChevronUp size={10} /> 收起規則</>
+                            ) : (
+                                <><ChevronDown size={10} /> 展開完整規則</>
+                            )}
+                        </button>
+                    )}
+                </div>
             </div>
         )}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-surfaceHighlight p-3 rounded-lg border border-slate-700">
-             <div className="flex items-center gap-2 text-slate-400 text-xs mb-1 uppercase tracking-wider">
-                <Coins size={14} />
-                起始籌碼
-             </div>
-             <div className="text-white font-mono text-lg">{tournament.startingChips.toLocaleString()}</div>
-          </div>
-          <div className="bg-surfaceHighlight p-3 rounded-lg border border-slate-700">
-             <div className="flex items-center gap-2 text-slate-400 text-xs mb-1 uppercase tracking-wider">
-                <Users size={14} />
-                {isEnded ? "總參賽人數" : "目前參賽"}
-             </div>
-             <div className={`font-mono text-lg ${tournament.reservedCount > tournament.maxCap ? 'text-danger' : 'text-white'}`}>
-                 {isEnded ? tournament.reservedCount : `${tournament.reservedCount} / ${tournament.maxCap}`}
-             </div>
-          </div>
-        </div>
-
-        {/* Player List Section */}
+        {/* Player List Section & Actions */}
         <div className="border border-slate-800 rounded-xl overflow-hidden bg-surfaceHighlight/30">
+             {/* Header with Total Count */}
+             <div className="bg-slate-900/50 p-3 flex justify-between items-center border-b border-slate-800">
+                 <div className="flex items-center gap-2">
+                     <Users size={14} className="text-slate-400" />
+                     <span className="text-sm font-bold text-slate-200">目前參賽</span>
+                 </div>
+                 <div className={`font-mono text-sm font-bold ${tournament.reservedCount >= tournament.maxCap ? 'text-danger' : 'text-white'}`}>
+                     {isEnded ? tournament.reservedCount : `${tournament.reservedCount} / ${tournament.maxCap}`}
+                     <span className="text-xs text-slate-500 font-normal ml-1">人</span>
+                 </div>
+             </div>
+
              <div className="flex border-b border-slate-800">
                  {!isEnded && (
                      <button 
                         onClick={() => setListTab('reserved')}
                         className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'reserved' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800'}`}
                      >
-                        已預約 ({reservedList.length})
+                        預約名單 ({reservedList.length})
                      </button>
                  )}
                  <button 
                     onClick={() => setListTab('paid')}
                     className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'paid' ? 'bg-emerald-900/40 text-emerald-400' : 'text-slate-400 hover:bg-slate-800'}`}
                  >
-                    {isEnded ? `已參賽玩家` : `已報名繳費 (${paidPlayers.length})`}
+                    {isEnded ? `參賽名單` : `已繳費 (${paidPlayers.length})`}
                  </button>
              </div>
-             <div className="p-3 max-h-56 overflow-y-auto">
+
+             <div className="p-3 max-h-48 overflow-y-auto">
                  {listTab === 'reserved' && !isEnded ? (
                      reservedList.length > 0 ? (
                          <div className="space-y-3">
@@ -267,93 +300,93 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     ) : <p className="text-center text-xs text-slate-500 py-2">尚無資料</p>
                  )}
              </div>
+
+             {/* Integrated Action Area in Footer of Player List */}
+             <div className="border-t border-slate-800 p-4 bg-slate-900/80">
+                {isEnded ? (
+                    <div className="text-center">
+                        <p className="text-slate-400 text-sm flex items-center justify-center gap-2">
+                            <Trophy size={14} className="text-gold" /> 此賽事已結束
+                        </p>
+                    </div>
+                ) : registration ? (
+                    // Registered State
+                    <div className="space-y-3">
+                        {registration.status === 'reserved' ? (
+                            <>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Button 
+                                        type="button" fullWidth variant="outline" 
+                                        onClick={handleCancelClick} 
+                                        className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
+                                    >
+                                        取消預約
+                                    </Button>
+                                    <Button 
+                                        type="button" 
+                                        fullWidth 
+                                        variant="primary" 
+                                        onClick={handleBuyInClick}
+                                        disabled={!canAfford || isFull}
+                                        className={(!canAfford || isFull) ? 'opacity-50' : ''}
+                                    >
+                                        {isFull ? "候補中 (等待名額)" : "確認報名"}
+                                    </Button>
+                                </div>
+                                {/* Weakened Wallet Display */}
+                                <div className="flex justify-between items-center px-1">
+                                     <span className="text-xs text-slate-500">儲值金餘額</span>
+                                     <div className="flex items-center gap-2">
+                                        <span className={`font-mono font-bold text-xs ${canAfford ? 'text-slate-300' : 'text-red-500'}`}>
+                                            ${currentBalance.toLocaleString()}
+                                        </span>
+                                        {!canAfford && <AlertTriangle size={12} className="text-red-500" />}
+                                     </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex items-center justify-center gap-2 py-2 text-emerald-400 text-sm font-bold">
+                                <ShieldCheck size={16} /> 已完成報名
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    // Unregistered State
+                    <div className="space-y-2">
+                         {isClosed ? (
+                             <div className="flex items-center justify-center gap-2 text-slate-500 text-sm">
+                                 <Lock size={14} /> 報名已截止
+                             </div>
+                         ) : (
+                            <>
+                                <Button type="button" fullWidth variant="secondary" onClick={handleReserveClick} className="h-10 border-amber-500/50 text-amber-500 hover:bg-amber-500/10">
+                                    <span className="text-sm font-bold">
+                                        {isFull ? "加入候補 (Join Waitlist)" : "預約席位"}
+                                    </span>
+                                </Button>
+                                {isFull && <div className="text-center text-[10px] text-slate-500">* 目前名額已滿，您將被列入候補名單。</div>}
+                            </>
+                         )}
+                    </div>
+                )}
+             </div>
         </div>
 
-        {/* Action Buttons */}
-        {isEnded ? (
-             <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 text-center">
-                 <Trophy size={24} className="mx-auto text-gold mb-2 opacity-50" />
-                 <p className="text-slate-400 text-sm">此賽事已結束</p>
-                 {registration && (
-                     <p className="text-emerald-400 text-xs mt-1">您已參與此賽事</p>
-                 )}
-             </div>
-        ) : registration ? (
-            <div className="bg-surfaceHighlight p-4 rounded-xl border border-slate-700 space-y-4">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${registration.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
-                        <Check size={20} />
-                    </div>
-                    <div>
-                        <div className="font-bold text-white">
-                            {registration.status === 'paid' ? '報名成功' : '已預約席位'}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                            狀態: {registration.status === 'paid' ? '已付款 (線上扣款)' : '待繳費 (現場繳費)'}
-                        </div>
-                    </div>
-                </div>
-
-                {registration.status === 'reserved' ? (
-                    <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                            <Button 
-                                type="button" fullWidth variant="outline" 
-                                onClick={handleCancelClick} 
-                                className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
-                            >
-                                取消預約
-                            </Button>
-                            <Button 
-                                type="button" 
-                                fullWidth 
-                                variant="primary" 
-                                onClick={handleBuyInClick}
-                                disabled={!canAfford}
-                                className={!canAfford ? 'opacity-50' : ''}
-                            >
-                                確認報名
-                            </Button>
-                        </div>
-                        <div className="flex justify-between items-center bg-black/20 p-2 rounded border border-slate-800">
-                             <span className="text-xs text-slate-400">儲值金餘額</span>
-                             <div className="flex items-center gap-2">
-                                <span className={`font-mono font-bold text-sm ${canAfford ? 'text-gold' : 'text-red-500'}`}>
-                                    ${currentBalance.toLocaleString()}
-                                </span>
-                                {!canAfford && <AlertTriangle size={12} className="text-red-500" />}
-                             </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800 flex items-center gap-2">
-                         <ShieldCheck size={16} className="text-emerald-500" />
-                         <span className="text-xs text-slate-400">已完成報名，如需異動請洽櫃檯。</span>
-                    </div>
-                )}
-            </div>
-        ) : (
-            <div className="space-y-3 pt-2">
-                {isClosed ? (
-                     <div className="bg-slate-800 p-4 rounded-lg text-slate-400 text-center text-sm border border-slate-700 flex flex-col items-center gap-2">
-                         <Lock size={16} />
-                         <span>此賽事已截止報名</span>
-                     </div>
-                ) : (
-                    <>
-                        <Button type="button" fullWidth variant="secondary" onClick={handleReserveClick} className="h-12 border-amber-500/50 text-amber-500 hover:bg-amber-500/10">
-                            <span className="text-base font-bold">
-                                {isFull ? "加入候補 (Join Waitlist)" : "預約"}
-                            </span>
-                        </Button>
-                        {isFull && <div className="text-center text-[10px] text-slate-500">* 目前名額已滿，您將被列入候補名單。</div>}
-                    </>
-                )}
-            </div>
+        {/* Watch Clock Link */}
+        {tournament.clockUrl && !isEnded && (
+            <a 
+                href={tournament.clockUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-surfaceHighlight border border-slate-700 rounded-lg text-slate-300 hover:text-white hover:border-slate-500 transition-all shadow-sm group"
+            >
+                <ExternalLink size={16} className="text-gold group-hover:scale-110 transition-transform" />
+                <span className="font-bold text-sm">觀看賽事時鐘 (Tournament Clock)</span>
+            </a>
         )}
 
         {/* Structure Info */}
-        <div className="border-t border-slate-800 pt-4">
+        <div className="pt-2">
            <div className="flex items-center gap-2 mb-3 text-gold">
               <Clock size={16} />
               <h4 className="font-bold text-sm tracking-wide">盲注結構表 (STRUCTURE)</h4>

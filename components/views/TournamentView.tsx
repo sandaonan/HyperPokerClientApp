@@ -158,64 +158,28 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       setDetailTournament(t);
   };
 
-  // Helper for Date/Time Display
-  const renderTimeDisplay = (startTimeIso: string, isClosed: boolean) => {
-      // If manually closed, show merged Closed badge
-      if (isClosed) {
-          return (
-             <div className="flex items-center gap-2">
-                  {/* We can still show time or hide it. Let's show time for reference */}
-                  <div className="font-mono text-slate-500 font-bold text-sm">
-                      {new Date(startTimeIso).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false})}
-                  </div>
-                  <Badge variant="default" className="bg-slate-700 text-slate-400 font-bold tracking-wide text-[10px] px-1.5 py-0">
-                      已截止
-                  </Badge>
-             </div>
-          );
-      }
-
-      const start = new Date(startTimeIso);
-      const diffMs = start.getTime() - now.getTime();
-      const isStarted = diffMs < 0;
+  const renderStateBadge = (t: Tournament) => {
+      // Logic for status badges
+      const startTime = new Date(t.startTime).getTime();
+      const currentTime = now.getTime();
       
+      // Mock logic: Assume game lasts 8 hours for 'Ended' visual if not explicitly defined
+      const isEnded = currentTime > startTime + (8 * 60 * 60 * 1000);
+
+      if (isEnded) {
+          return <Badge className="bg-slate-700 text-slate-400 border border-slate-600">已結束</Badge>;
+      }
+      if (t.isLateRegEnded) {
+          return <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">已截買</Badge>;
+      }
+      return <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">報名中</Badge>;
+  };
+
+  const renderTimeDisplay = (startTimeIso: string) => {
+      const start = new Date(startTimeIso);
       // Format: "14:00"
       const timeStr = start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-      
-      // Relative Badge Text
-      let badgeText = '';
-      let badgeVariant: 'default' | 'warning' | 'success' | 'danger' = 'default';
-
-      if (isStarted) {
-          const minsAgo = Math.floor(Math.abs(diffMs) / 60000);
-          const hoursAgo = Math.floor(minsAgo / 60);
-          badgeText = hoursAgo > 0 ? `已開始 ${hoursAgo}h` : `已開始 ${minsAgo}m`;
-          badgeVariant = 'success';
-      } else {
-          const minsUntil = Math.floor(diffMs / 60000);
-          const hoursUntil = Math.floor(minsUntil / 60);
-          
-          if (hoursUntil < 1) {
-              badgeText = `${minsUntil}分後`;
-              badgeVariant = 'danger'; // Urgent
-          } else if (hoursUntil < 24) {
-              badgeText = `${hoursUntil}小時後`;
-              badgeVariant = 'warning';
-          } else {
-              const days = Math.floor(hoursUntil / 24);
-              badgeText = `${days}天後`;
-              badgeVariant = 'default';
-          }
-      }
-
-      return (
-          <div className="flex items-center gap-2">
-              <div className="font-mono text-white font-bold text-sm">{timeStr}</div>
-              <Badge variant={badgeVariant} className="font-bold tracking-wide text-[10px] px-1.5 py-0">
-                  {badgeText}
-              </Badge>
-          </div>
-      );
+      return <div className="font-mono text-white font-bold text-sm">{timeStr}</div>;
   };
 
   // Grouping logic & Filtering
@@ -251,14 +215,17 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex flex-col gap-1">
                         <h3 className="font-bold text-base text-white">{t.name}</h3>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Status Badge Added */}
+                            {renderStateBadge(t)}
+                            <div className="h-3 w-px bg-slate-700 mx-0.5"></div>
                             {t.type && <span className="text-[10px] text-slate-300 border border-slate-600 rounded px-1.5 py-[1px] bg-slate-800/50">{t.type}</span>}
                             <Badge variant={isPaid ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0 whitespace-nowrap">
                                     {isPaid ? '已付款' : '已預約'}
                             </Badge>
                         </div>
                     </div>
-                    {renderTimeDisplay(t.startTime, t.isLateRegEnded)}
+                    {renderTimeDisplay(t.startTime)}
                 </div>
 
                 {/* Unified Progress Bar */}
@@ -300,9 +267,13 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
         <div className="flex justify-between items-center mb-2">
             <div className="flex flex-col gap-1">
                 <h3 className="font-bold text-base text-white font-display tracking-wide">{t.name}</h3>
-                {t.type && <span className="text-[10px] text-slate-400 border border-slate-700 rounded px-1 w-fit">{t.type}</span>}
+                <div className="flex items-center gap-1.5">
+                    {/* Status Badge Added */}
+                    {renderStateBadge(t)}
+                    {t.type && <span className="text-[10px] text-slate-400 border border-slate-700 rounded px-1 w-fit">{t.type}</span>}
+                </div>
             </div>
-            {renderTimeDisplay(t.startTime, t.isLateRegEnded)}
+            {renderTimeDisplay(t.startTime)}
         </div>
 
         <div className="flex items-center justify-between text-xs mt-2">

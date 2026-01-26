@@ -54,6 +54,16 @@ const MOCK_STRUCTURE = [
   { level: 8, smallBlind: 600, bigBlind: 1200, ante: 1200, duration: 20 },
 ];
 
+const COMMON_RULES = `1.比賽最後30分鐘不得參賽。
+2.每次報名為相同起始計分牌。
+3.開賽後不得移除任意計分牌，需使用至當前比賽結束止。
+4.參賽者不得將計分牌攜帶離開牌桌。
+5.嚴禁參賽者自行將計分牌拿回櫃檯領取獎勵。
+6.比賽結束後，參賽者須等待記分員與裁判進行計分牌分數確認，依照計分牌數量進行排名，並依照比賽名次發放獎金。
+7.Nice hand德州撲克俱樂部將保留所有賽事最終解釋權。
+8.中途退賽或判定失格將移除計分牌，不退回參賽費用。
+9.每個報名依報名的比賽分別提撥獎金，作為前三名獎勵，分別額外獲得50%、30%、20%的額外獎勵(總獎池提撥)`;
+
 export const SEED_TOURNAMENTS: Tournament[] = [
   // --- CLUB 1: HYPER (Scenarios) ---
   {
@@ -62,7 +72,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '每日深籌賽',
     description: '我們的招牌每日賽事。(正常開放情境)',
     type: '錦標賽',
-    promotionNote: '🔥 早鳥優惠：開賽前完成報名，加贈 2,000 籌碼！\n💎 翡翠會員以上免服務費。',
+    promotionNote: `🔥 早鳥優惠：開賽前完成報名，加贈 2,000 籌碼！\n${COMMON_RULES}`,
     buyIn: 3000,
     fee: 400,
     startingChips: 20000,
@@ -80,7 +90,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '新秀練習賽',
     description: '專為新手設計，體驗實戰氛圍。(測試: 可預約 Demo)',
     type: '衛星賽',
-    promotionNote: '前三名可獲得週賽門票一張。',
+    promotionNote: `前三名可獲得週賽門票一張。\n${COMMON_RULES}`,
     buyIn: 1000,
     fee: 100,
     startingChips: 10000,
@@ -97,7 +107,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '豪客賽',
     description: '專為高額玩家打造。(測試超額紅色顯示)',
     type: '錦標賽',
-    promotionNote: '包含自助餐點與無限暢飲。',
+    promotionNote: `包含自助餐點與無限暢飲。\n${COMMON_RULES}`,
     buyIn: 10000,
     fee: 1000,
     startingChips: 50000,
@@ -115,7 +125,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '快速獵人賽',
     description: '快節奏賽事。(測試截止報名情境)',
     type: '賞金賽',
-    promotionNote: '每淘汰一人可獲得 $500 賞金。',
+    promotionNote: `每淘汰一人可獲得 $500 賞金。\n${COMMON_RULES}`,
     buyIn: 2000,
     fee: 300,
     startingChips: 15000,
@@ -132,7 +142,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '昨日回顧賽',
     description: '昨天的比賽。(測試歷史回顧)',
     type: '限時錦標賽',
-    promotionNote: '',
+    promotionNote: COMMON_RULES,
     buyIn: 1000,
     fee: 100,
     startingChips: 10000,
@@ -151,7 +161,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '週五狂歡夜',
     description: 'Ace High 最受歡迎的賽事，適合所有玩家。(測試: 正常預約/報名)',
     type: '錦標賽',
-    promotionNote: '現場提供免費啤酒。',
+    promotionNote: `現場提供免費啤酒。\n${COMMON_RULES}`,
     buyIn: 2000,
     fee: 200,
     startingChips: 15000,
@@ -169,7 +179,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '平日積分賽',
     description: '平日晚間固定賽事，累積積分換大獎。(測試: 可預約 Demo)',
     type: '錦標賽',
-    promotionNote: '',
+    promotionNote: COMMON_RULES,
     buyIn: 1500,
     fee: 200,
     startingChips: 20000,
@@ -186,7 +196,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '菁英單挑賽',
     description: '極限單挑，名額有限。(測試: 候補名單功能)',
     type: '錦標賽',
-    promotionNote: '',
+    promotionNote: COMMON_RULES,
     buyIn: 5000,
     fee: 500,
     startingChips: 30000,
@@ -204,7 +214,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '下午茶休閒賽',
     description: '輕鬆打，累積積分。(測試: 已截止報名)',
     type: '衛星賽',
-    promotionNote: '',
+    promotionNote: COMMON_RULES,
     buyIn: 500,
     fee: 50,
     startingChips: 5000,
@@ -221,7 +231,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     name: '上週冠軍賽',
     description: '回顧上週精彩賽事。(測試: 歷史賽事)',
     type: '錦標賽',
-    promotionNote: '',
+    promotionNote: COMMON_RULES,
     buyIn: 6000,
     fee: 600,
     startingChips: 25000,
