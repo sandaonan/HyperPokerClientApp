@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Home, User as UserIcon, Ticket } from 'lucide-react';
+import { Home, User as UserIcon, Ticket, LogIn } from 'lucide-react';
 import { LoginView } from './components/views/LoginView';
 import { HomeView } from './components/views/HomeView';
 import { TournamentView } from './components/views/TournamentView';
@@ -10,6 +10,28 @@ import { ViewState, User, Club } from './types';
 import { mockApi } from './services/mockApi';
 import { AlertProvider } from './contexts/AlertContext';
 
+const GuestOverlay: React.FC<{ onLoginClick: () => void }> = ({ onLoginClick }) => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 pointer-events-auto">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+        
+        {/* Content */}
+        <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl relative z-10 animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                <UserIcon size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">訪客模式</h3>
+            <p className="text-slate-400 mb-6 text-sm">此功能僅限會員使用。請註冊或登入以管理您的檔案、報名賽事與查看戰績。</p>
+            <button 
+                onClick={onLoginClick}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl text-black font-bold shadow-lg shadow-amber-500/20 hover:scale-[1.02] transition-transform"
+            >
+                立即登入 / 註冊
+            </button>
+        </div>
+    </div>
+);
+
 const AppContent: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>('login');
@@ -18,6 +40,11 @@ const AppContent: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     navigateTo('home');
+  };
+
+  const handleGuestEnter = () => {
+      setCurrentUser(null);
+      navigateTo('home');
   };
 
   const handleLogout = () => {
@@ -40,12 +67,15 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const isGuest = currentView !== 'login' && !currentUser;
+
   const renderView = () => {
     switch (currentView) {
       case 'login':
         return (
           <LoginView 
-            onLogin={handleLogin} 
+            onLogin={handleLogin}
+            onGuestAccess={handleGuestEnter}
           />
         );
       case 'home':
@@ -56,11 +86,12 @@ const AppContent: React.FC = () => {
               navigateTo('tournaments');
             }}
             onJoinNew={() => {}}
+            isGuest={isGuest}
           />
         );
       case 'tournaments':
         return (
-          currentUser && selectedClub ? (
+          selectedClub ? (
             <TournamentView 
               user={currentUser}
               club={selectedClub} 
@@ -74,22 +105,32 @@ const AppContent: React.FC = () => {
         );
       case 'profile':
         return (
-          currentUser ? (
-            <ProfileView 
-              user={currentUser} 
-              onUpdateUser={(updates) => setCurrentUser({...currentUser, ...updates})} 
-              onLogout={handleLogout}
-            />
-          ) : null
+            <div className="relative min-h-[80vh]">
+                {isGuest && <GuestOverlay onLoginClick={handleLogout} />}
+                <div className={isGuest ? 'blur-md pointer-events-none select-none opacity-40 fixed inset-0 top-20' : ''}>
+                    {/* Render Mock Profile for background visual */}
+                    <ProfileView 
+                        user={currentUser || { 
+                            id: 'guest', username: 'Guest', isProfileComplete: false 
+                        } as User} 
+                        onUpdateUser={() => {}} 
+                        onLogout={handleLogout}
+                    />
+                </div>
+            </div>
         );
       case 'my-games':
         return (
-          currentUser ? (
-            <StatsView 
-              userId={currentUser.id}
-              onNavigateTournaments={() => navigateTo('home')}
-            />
-          ) : null
+            <div className="relative min-h-[80vh]">
+                {isGuest && <GuestOverlay onLoginClick={handleLogout} />}
+                <div className={isGuest ? 'blur-md pointer-events-none select-none opacity-40 fixed inset-0 top-20' : ''}>
+                    {/* Render Mock Stats for background visual */}
+                    <StatsView 
+                        userId={currentUser?.id || 'guest'}
+                        onNavigateTournaments={() => navigateTo('home')}
+                    />
+                </div>
+            </div>
         );
       default:
         return <div>View not found</div>;
@@ -103,7 +144,7 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Bottom Navigation */}
-      {currentUser && currentView !== 'login' && (
+      {currentView !== 'login' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-md border-t border-slate-800 pb-safe">
           <div className="max-w-md mx-auto flex justify-around items-center h-16 px-6">
             <button 
@@ -126,8 +167,8 @@ const AppContent: React.FC = () => {
               onClick={() => navigateTo('profile')}
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'profile' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
             >
-              <UserIcon size={22} />
-              <span className="text-[10px] font-medium">檔案</span>
+              {isGuest ? <LogIn size={22} /> : <UserIcon size={22} />}
+              <span className="text-[10px] font-medium">{isGuest ? '登入' : '檔案'}</span>
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LogIn, UserPlus, Loader2 } from 'lucide-react';
+import { LogIn, UserPlus, Loader2, Compass } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { mockApi } from '../../services/mockApi';
@@ -8,9 +8,10 @@ import { User } from '../../types';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
+  onGuestAccess: () => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
+export const LoginView: React.FC<LoginViewProps> = ({ onLogin, onGuestAccess }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -145,6 +146,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     {mode === 'login' ? '還沒有帳號？點此註冊' : '已有帳號？返回登入'}
                   </button>
              </div>
+        </div>
+        
+        {/* Guest Exploration Button */}
+        <div className="mt-8 text-center">
+             <button 
+                onClick={onGuestAccess}
+                className="flex items-center justify-center gap-2 mx-auto text-slate-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-6 py-3 rounded-full border border-slate-700 hover:border-slate-500"
+             >
+                 <Compass size={16} className="text-emerald-400" />
+                 <span className="text-sm font-bold">不登入，先瀏覽看看</span>
+             </button>
         </div>
       </div>
     </div>

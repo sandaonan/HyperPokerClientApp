@@ -33,6 +33,22 @@ export interface Club {
   longitude?: number; // Added for Geolocation
 }
 
+export interface NearbyClub {
+  place_id: string;
+  name: string;
+  address: string; // Legacy short address
+  formatted_address?: string; // New: Full address from Google
+  rating: number;
+  latitude: number;
+  longitude: number;
+  vicinity: string;
+  openNow: boolean;
+  opening_hours?: string[]; // New: Array of daily hours strings
+  google_maps_url?: string; // New: Direct link
+  website?: string; // New: Official site
+  photoReference?: string;
+}
+
 // active: 正常會員
 // pending: 需身份驗證 (資料修改或新戶)
 // applying: 申請加入審核中

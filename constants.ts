@@ -1,5 +1,5 @@
 
-import { Club, Tournament, GameRecord } from './types';
+import { Club, Tournament, GameRecord, NearbyClub } from './types';
 
 export const LINE_LIFF_ID = 'YOUR_LIFF_ID_HERE'; 
 
@@ -40,6 +40,141 @@ export const SEED_CLUBS: Club[] = [
     latitude: 25.047800, // Near Taipei Main Station
     longitude: 121.517100,
   },
+];
+
+export const NEARBY_CLUBS_DATA: NearbyClub[] = [
+    {
+        place_id: "ChIJFaPehP-rQjQR9qha-trFLtc",
+        name: "City Poker 德州撲克競技協會 南京店",
+        address: "南京東路五段19-10號11F",
+        formatted_address: "105台灣台北市松山區南京東路五段19-10號11F",
+        rating: 5,
+        latitude: 25.051841,
+        longitude: 121.55792,
+        vicinity: "松山區",
+        openNow: true,
+        google_maps_url: "https://maps.google.com/?cid=15937494323223013366",
+        website: "https://www.facebook.com/CityPokerNJ",
+        opening_hours: [
+            "星期一: 14:00 – 06:00",
+            "星期二: 14:00 – 06:00",
+            "星期三: 14:00 – 06:00",
+            "星期四: 14:00 – 06:00",
+            "星期五: 14:00 – 06:00",
+            "星期六: 14:00 – 06:00",
+            "星期日: 14:00 – 06:00"
+        ]
+    },
+    {
+        place_id: "ChIJefJa7QarQjQRFBO9lbcj__I",
+        name: "台灣華人德州撲克競技協會",
+        address: "建國北路一段80號B1樓",
+        formatted_address: "10491台灣台北市中山區建國北路一段80號B1樓",
+        rating: 3.9,
+        latitude: 25.0495031,
+        longitude: 121.5362797,
+        vicinity: "中山區",
+        openNow: true,
+        google_maps_url: "https://maps.google.com/?cid=17437701764121596692",
+        website: "https://ctpclub.com/",
+        opening_hours: [
+            "星期一: 24 小時營業",
+            "星期二: 24 小時營業",
+            "星期三: 24 小時營業",
+            "星期四: 24 小時營業",
+            "星期五: 24 小時營業",
+            "星期六: 24 小時營業",
+            "星期日: 24 小時營業"
+        ]
+    },
+    {
+        place_id: "ChIJFUhhGOirQjQRt71DYGjdh5M",
+        name: "Ace8 - Poker 國際撲克競技協會",
+        address: "南京東路四段11號3 樓",
+        formatted_address: "105台灣台北市松山區南京東路四段11號3樓",
+        rating: 4.4,
+        latitude: 25.0520064,
+        longitude: 121.5498153,
+        vicinity: "松山區",
+        openNow: true,
+        google_maps_url: "https://maps.google.com/?cid=10630448777123954039",
+        website: "https://www.facebook.com/Ace8Poker",
+        opening_hours: [
+            "星期一: 15:00 – 07:00",
+            "星期二: 15:00 – 07:00",
+            "星期三: 15:00 – 07:00",
+            "星期四: 15:00 – 07:00",
+            "星期五: 15:00 – 07:00",
+            "星期六: 14:00 – 07:00",
+            "星期日: 14:00 – 07:00"
+        ]
+    },
+    {
+        place_id: "ChIJRV8rYsupQjQR8_RF-KKmgA8",
+        name: "Poker Face 德州撲克協會永和店",
+        address: "中正路399號",
+        formatted_address: "234台灣新北市永和區中正路399號",
+        rating: 5,
+        latitude: 25.0041795,
+        longitude: 121.5171489,
+        vicinity: "永和區",
+        openNow: true,
+        google_maps_url: "https://maps.google.com/?cid=1119567936603013063",
+        website: "https://www.facebook.com/PokerFaceYonghe",
+        opening_hours: [
+            "星期一: 13:00 – 05:00",
+            "星期二: 13:00 – 05:00",
+            "星期三: 13:00 – 05:00",
+            "星期四: 13:00 – 05:00",
+            "星期五: 13:00 – 06:00",
+            "星期六: 13:00 – 06:00",
+            "星期日: 13:00 – 05:00"
+        ]
+    },
+    {
+        place_id: "ChIJR0ZL08QDaDQROZUiq0tEDY8",
+        name: "XD Poker新店德州撲克競技協會",
+        address: "中正路504號2樓",
+        formatted_address: "231台灣新北市新店區中正路504號2樓",
+        rating: 4.4,
+        latitude: 24.9825767,
+        longitude: 121.5339004,
+        vicinity: "新店區",
+        openNow: true,
+        google_maps_url: "https://maps.google.com/?cid=10305886980630713657",
+        website: "https://www.facebook.com/XDPokerClub",
+        opening_hours: [
+            "星期一: 14:00 – 02:00",
+            "星期二: 14:00 – 02:00",
+            "星期三: 14:00 – 02:00",
+            "星期四: 14:00 – 02:00",
+            "星期五: 14:00 – 04:00",
+            "星期六: 14:00 – 04:00",
+            "星期日: 14:00 – 02:00"
+        ]
+    },
+    {
+        place_id: "ChIJT1SvRACpQjQRGyqd16ly8N0",
+        name: "City Poker德州撲克 中和店",
+        address: "民享街4號",
+        formatted_address: "235台灣新北市中和區民享街4號",
+        rating: 3.3,
+        latitude: 25.0054157,
+        longitude: 121.4738877,
+        vicinity: "中和區",
+        openNow: true,
+        google_maps_url: "https://maps.google.com/?cid=15993883398905387547",
+        website: "https://www.facebook.com/CityPokerZH",
+        opening_hours: [
+            "星期一: 15:00 – 03:00",
+            "星期二: 15:00 – 03:00",
+            "星期三: 15:00 – 03:00",
+            "星期四: 15:00 – 03:00",
+            "星期五: 15:00 – 05:00",
+            "星期六: 15:00 – 05:00",
+            "星期日: 15:00 – 03:00"
+        ]
+    }
 ];
 
 const today = new Date();
