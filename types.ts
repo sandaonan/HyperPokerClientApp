@@ -1,5 +1,5 @@
 
-export type ViewState = 'login' | 'home' | 'tournaments' | 'profile' | 'my-games';
+export type ViewState = 'login' | 'home' | 'tournaments' | 'profile' | 'my-games' | 'callback';
 
 export interface User {
   id: string;

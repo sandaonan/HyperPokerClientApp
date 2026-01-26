@@ -79,60 +79,6 @@ class MockApiService {
     }
   }
 
-  // --- Auth ---
-
-  async login(username: string, password: string): Promise<User> {
-    await delay(500);
-    const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-    const user = users.find(u => u.username === username && u.password === password);
-    
-    if (!user) throw new Error("帳號或密碼錯誤 (測試帳號: player1 / password)");
-    
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, user.id);
-    return user;
-  }
-
-  async register(username: string, password: string, mobile: string = ''): Promise<User> {
-    await delay(800);
-    const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-    
-    if (users.find(u => u.username === username)) {
-      throw new Error("此帳號已被使用");
-    }
-
-    const newUser: User = {
-      id: `u-${Date.now()}`,
-      username,
-      password, 
-      mobile, // Can be empty now
-      mobileVerified: false, // Default to false if skipped at registration
-      isProfileComplete: false,
-      nickname: username,
-    };
-
-    users.push(newUser);
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-    
-    // Auto-join first club 'c-1' as 'pending' (Need Verification) because profile is empty
-    const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-    wallets.push({
-        userId: newUser.id,
-        clubId: 'c-1',
-        balance: 0,
-        points: 0,
-        joinDate: new Date().toISOString(),
-        status: 'pending' // Needs ID verification
-    });
-    localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
-    
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, newUser.id);
-    return newUser;
-  }
-
-  async logout() {
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-  }
-
   // --- User Profile Updates ---
 
   async updateUserProfile(user: User): Promise<User> {
