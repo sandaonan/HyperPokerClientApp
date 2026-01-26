@@ -201,13 +201,13 @@ class MockApiService {
       if (!user) throw new Error("User not found");
 
       if (!user.isProfileComplete || !user.name || !user.nationalId || !user.birthday) {
-          throw new Error("請先至「個人檔案」完成實名資料填寫與證件上傳，方可申請加入俱樂部。");
+          throw new Error("請先至「個人檔案」完成實名資料填寫與證件上傳，方可申請加入協會。");
       }
 
       const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
       
       if (wallets.find(w => w.userId === userId && w.clubId === clubId)) {
-          throw new Error("您已是該俱樂部會員或是申請審核中");
+          throw new Error("您已是該協會會員或是申請審核中");
       }
 
       const newWallet: Wallet = {
@@ -315,12 +315,12 @@ class MockApiService {
     const walletIndex = wallets.findIndex(w => w.userId === userId && w.clubId === tournament.clubId);
 
     // Check Membership
-    if (walletIndex === -1) throw new Error("您尚未加入該俱樂部");
+    if (walletIndex === -1) throw new Error("您尚未加入該協會");
     
     const userWallet = wallets[walletIndex];
     if (userWallet.status === 'applying') throw new Error("您的入會申請正在審核中，請稍候。");
     if (userWallet.status === 'pending') throw new Error("您的身份驗證狀態為「待驗證」，請至櫃檯完成真人核對後方可報名。");
-    if (userWallet.status === 'banned') throw new Error("您已被該俱樂部停權。");
+    if (userWallet.status === 'banned') throw new Error("您已被該協會停權。");
 
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     

@@ -29,6 +29,8 @@ export interface Club {
   localId: string;
   currency: string;
   feedbackUrl?: string; // Added: External link for feedback
+  latitude?: number; // Added for Geolocation
+  longitude?: number; // Added for Geolocation
 }
 
 // active: 正常會員
@@ -99,4 +101,5 @@ export interface GameRecord {
   seatNumber?: number; // Added
   profit: number; 
   type?: TournamentType; // Added for history display
+  points?: number; // Added for display in StatsView
 }

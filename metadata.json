@@ -1,5 +1,8 @@
+
 {
   "name": "HyperPoker",
-  "description": "為撲克玩家打造的頂級全球玩家入口與俱樂部管理工具。",
-  "requestFramePermissions": []
+  "description": "為撲克玩家打造的頂級全球玩家入口與協會管理工具。",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

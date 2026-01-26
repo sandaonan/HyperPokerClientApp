@@ -195,7 +195,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       if (user.isProfileComplete) {
           const confirmed = await showConfirm(
               "重要提醒",
-              "⚠️ 修改身份資料（姓名、證件、生日）將導致您在所有俱樂部的會員狀態變更為「待驗證」。\n\n您必須重新前往俱樂部櫃檯進行真人核對，否則將無法報名賽事。\n\n確定要保存變更嗎？"
+              "⚠️ 修改身份資料（姓名、證件、生日）將導致您在所有協會的會員狀態變更為「待驗證」。\n\n您必須重新前往協會櫃檯進行真人核對，否則將無法報名賽事。\n\n確定要保存變更嗎？"
           );
           if (!confirmed) return;
       }
@@ -208,7 +208,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           });
           onUpdateUser(updatedUser);
           setIsEditingIdentity(false);
-          await showAlert("更新成功", "身份資料已更新。請記得至俱樂部櫃檯完成驗證。");
+          await showAlert("更新成功", "身份資料已更新。請記得至協會櫃檯完成驗證。");
       } catch (e: any) {
           await showAlert("錯誤", e.message);
       }
@@ -264,7 +264,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'club' ? 'text-gold border-b-2 border-gold' : 'text-textMuted hover:text-slate-300'}`}
           onClick={() => setActiveTab('club')}
         >
-          俱樂部
+          協會
         </button>
       </div>
 
@@ -293,7 +293,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                     <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg flex items-start gap-2">
                         <AlertTriangle size={16} className="text-yellow-500 shrink-0 mt-0.5" />
                         <p className="text-xs text-yellow-500/90 leading-relaxed">
-                            注意：修改此區塊資料後，您在所有俱樂部的會籍將轉為<span className="font-bold underline">待驗證</span>狀態。需重新至櫃檯進行真人核對。
+                            注意：修改此區塊資料後，您在所有協會的會籍將轉為<span className="font-bold underline">待驗證</span>狀態。需重新至櫃檯進行真人核對。
                         </p>
                     </div>
                 )}
@@ -372,12 +372,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">一般設定</h3>
               
               <div className="flex gap-2 items-end">
-                <Input 
-                    label="暱稱 (顯示名稱)" 
-                    value={nickname} 
-                    onChange={(e) => setNickname(e.target.value)}
-                />
-                <Button size="md" className="mb-[1px]" variant="secondary" onClick={handleSaveNickname}>更新</Button>
+                <div className="flex-1">
+                    <Input 
+                        label="暱稱 (顯示名稱)" 
+                        value={nickname} 
+                        onChange={(e) => setNickname(e.target.value)}
+                    />
+                </div>
+                <Button size="md" className="mb-[1px] shrink-0 whitespace-nowrap" variant="secondary" onClick={handleSaveNickname}>更新</Button>
               </div>
 
               <div className="space-y-2">
@@ -469,7 +471,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
              })}
              
              {myWallets.length === 0 && (
-                 <div className="text-center py-8 text-slate-500 text-sm">尚未加入任何俱樂部</div>
+                 <div className="text-center py-8 text-slate-500 text-sm">尚未加入任何協會</div>
              )}
         </div>
       )}
@@ -489,45 +491,52 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       <Modal isOpen={!!showMemberCard} onClose={() => setShowMemberCard(null)} title="會員認證">
          <div className="flex flex-col items-center space-y-4">
              
-             {/* 1. Gold Card */}
-             <div className="w-full aspect-[1.6/1] bg-gradient-to-br from-yellow-200 via-amber-400 to-amber-600 rounded-xl shadow-2xl p-6 relative overflow-hidden flex flex-col justify-between">
+             {/* 1. Combined Membership Card (Card + Barcode) */}
+             <div className="w-full aspect-[1.5/1] bg-gradient-to-br from-yellow-200 via-amber-400 to-amber-600 rounded-xl shadow-2xl relative overflow-hidden flex flex-col justify-between">
                  {/* Card Texture Overlay */}
-                 <div className="absolute inset-0 opacity-10" style={{
+                 <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
                      backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)',
                      backgroundSize: '16px 16px'
                  }}></div>
                  
-                 <div className="relative z-10 flex justify-end">
-                    <div className="w-8 h-8 bg-white/30 rounded-full blur-[1px]"></div>
-                 </div>
+                 {/* Top Shine */}
+                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-10 pointer-events-none"></div>
 
-                 <div className="relative z-10 text-center">
-                    <div className="flex items-center justify-center gap-2 text-black/80 font-display font-bold text-2xl tracking-wide">
-                        <span>♠️</span> {selectedClubInfo?.name || 'Club'}
+                 {/* Top Section: Branding */}
+                 <div className="relative z-10 p-6">
+                    <div className="flex justify-between items-start">
+                        <div>
+                             <div className="flex items-center gap-2 text-black/90 font-display font-bold text-2xl tracking-wide drop-shadow-sm">
+                                <span>♠️</span> {selectedClubInfo?.name || 'Club'}
+                            </div>
+                            <div className="text-[10px] text-black/70 uppercase tracking-widest font-bold mt-1">
+                                {selectedClubInfo?.tier || 'MEMBER'} PASS
+                            </div>
+                        </div>
+                        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30">
+                             {/* Hologram Effect Placeholder */}
+                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-300 to-purple-400 opacity-60"></div>
+                        </div>
                     </div>
                  </div>
 
-                 <div className="relative z-10">
-                    <div className="text-[10px] text-black/60 uppercase tracking-widest font-bold text-center">Poker, and Everything in Between</div>
+                 {/* Bottom Section: Barcode Area */}
+                 <div className="relative z-10 mx-6 mb-6">
+                     <div className="bg-white/95 backdrop-blur-md rounded-lg p-3 shadow-lg flex flex-col items-center gap-1 border border-white/50">
+                        {/* Simulated Barcode */}
+                         <div className="w-3/4 h-8 bg-black opacity-90" style={{
+                             maskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)',
+                             WebkitMaskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)'
+                         }}></div>
+                         <div className="text-black font-mono text-xs font-bold tracking-widest text-slate-800">2967089445</div>
+                     </div>
                  </div>
-                 
-                 {/* Shine Effect */}
-                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-10 pointer-events-none"></div>
              </div>
 
-             {/* 2. Mileage Circle (Moved Here) */}
+             {/* 2. Mileage Circle (Moved below card) */}
              <MileageCircle current={selectedWallet?.points || 0} total={3000} />
-             
-             {/* 3. Bottom Barcode (Card ID) */}
-             <div className="w-full bg-white p-3 rounded-lg flex flex-col items-center gap-1 shadow-inner">
-                 <div className="w-2/3 h-8 bg-black opacity-90" style={{
-                     maskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)',
-                     WebkitMaskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)'
-                 }}></div>
-                 <div className="text-black font-mono text-xs text-slate-600">2967089445</div>
-             </div>
 
-             {/* 4. Financial Info & Feedback */}
+             {/* 3. Financial Info & Feedback */}
              <div className="w-full bg-surfaceHighlight rounded-xl p-4 border border-slate-700 space-y-3 mt-2">
                  <div className="flex justify-between items-center border-b border-slate-700 pb-2">
                      <span className="text-sm text-slate-400">預繳報名費餘額</span>

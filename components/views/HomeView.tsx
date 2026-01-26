@@ -126,8 +126,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
 
             <div className="flex items-center justify-between text-sm text-textMuted">
                 <span>{club.description?.substring(0, 20)}...</span>
-                <span className="group-hover:translate-x-1 transition-transform text-white flex items-center gap-1 text-xs uppercase tracking-widest font-bold text-gold">
-                    進入俱樂部 <ChevronRight size={14} />
+                <span className="whitespace-nowrap group-hover:translate-x-1 transition-transform text-white flex items-center gap-1 text-xs uppercase tracking-widest font-bold text-gold">
+                    進入協會 <ChevronRight size={14} />
                 </span>
             </div>
         </Card>
@@ -140,8 +140,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
       
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white font-display">我的俱樂部</h2>
-          <p className="text-sm text-textMuted">您的專屬競技場</p>
+          <h2 className="text-xl font-bold text-white font-display">協會</h2>
+          {/* Subtitle removed as requested */}
         </div>
       </div>
 
@@ -152,7 +152,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
              joinedClubs.map(renderClubCard)
         ) : (
             <div className="text-center py-12 bg-surfaceHighlight/30 rounded-2xl border border-dashed border-slate-700">
-                <p className="text-slate-500">您尚未加入任何俱樂部</p>
+                <p className="text-slate-500">您尚未加入任何協會</p>
             </div>
         )}
       </div>
@@ -164,12 +164,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
           className="w-full py-4 border border-dashed border-amber-600/30 bg-amber-600/5 rounded-xl text-amber-500 hover:text-amber-400 hover:border-amber-500 hover:bg-amber-600/10 transition-all flex items-center justify-center gap-2 font-bold tracking-wide"
         >
           <Search size={16} />
-          加入新俱樂部
+          加入新協會
         </button>
       </div>
 
       {/* Join Club Modal */}
-      <Modal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} title="探索俱樂部">
+      <Modal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} title="探索協會">
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
               {availableClubs.length > 0 ? (
                   availableClubs.map(club => {
@@ -185,7 +185,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
                             <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <h3 className="font-bold text-white">{club.name}</h3>
-                                    <Badge className="mt-1" variant="outline">{club.tier}</Badge>
+                                    {/* Removed Tier Badge as requested */}
                                 </div>
                                 <div className="text-right">
                                     <span className="text-xs text-slate-500">ID: {club.localId}</span>
@@ -210,7 +210,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
                       );
                   })
               ) : (
-                  <p className="text-center text-slate-500 py-8">目前沒有可加入的俱樂部</p>
+                  <p className="text-center text-slate-500 py-8">目前沒有可加入的協會</p>
               )}
           </div>
       </Modal>
@@ -224,13 +224,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub }) => {
             <h3 className="text-lg font-bold text-white">您的會籍尚未啟用</h3>
             <p className="text-sm text-slate-400 leading-relaxed">
                 可能的原因：<br/>
-                1. 您剛申請加入此俱樂部（需至櫃檯開通）。<br/>
+                1. 您剛申請加入此協會（需至櫃檯開通）。<br/>
                 2. 您近期修改了個人檔案資料（需重新核對）。
             </p>
             <div className="bg-slate-800 p-4 rounded-lg text-sm text-slate-300 text-left border border-slate-700">
                 <p className="font-bold mb-2 text-white">如何解決？</p>
                 <ul className="list-disc list-inside space-y-1">
-                    <li>請攜帶身份證件前往該俱樂部櫃檯。</li>
+                    <li>請攜帶身份證件前往該協會櫃檯。</li>
                     <li>工作人員核對資料無誤後，將為您啟用報名權限。</li>
                 </ul>
             </div>

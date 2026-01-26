@@ -111,7 +111,7 @@ const AppContent: React.FC = () => {
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'home' || currentView === 'tournaments' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
             >
               <Home size={22} />
-              <span className="text-[10px] font-medium">俱樂部</span>
+              <span className="text-[10px] font-medium">協會</span>
             </button>
             
             <button 

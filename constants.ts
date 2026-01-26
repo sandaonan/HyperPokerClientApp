@@ -7,32 +7,38 @@ export const LINE_LIFF_ID = 'YOUR_LIFF_ID_HERE';
 export const SEED_CLUBS: Club[] = [
   {
     id: 'c-1',
-    name: 'Hyper 俱樂部',
-    description: '台北市最頂級的德州撲克競技協會。每週舉辦多場高額賽事。',
+    name: 'Hyper 協會',
+    description: '台北市最頂級的德州撲克競技協會，致力於提供國際級的賽事體驗。我們擁有最專業的發牌團隊、最舒適的賽事環境以及最公正的賽事規則。\n\n每日舉辦多場高額保證賽事，並定期舉辦年度大賽。場館內設有豪華休息區、專業餐飲服務，讓您在激烈的腦力激盪後能獲得充分的放鬆。無論您是職業選手還是休閒玩家，Hyper 協會都是您展現牌技的最佳舞台。歡迎隨時蒞臨挑戰！',
     bannerUrl: 'https://placehold.co/1000x400/450a0a/fbbf24?text=HYPER+POKER+CLUB&font=playfair-display', 
     tier: 'Platinum',
     localId: 'Hyper-888',
     currency: 'USD',
     feedbackUrl: 'https://forms.gle/placeholder_feedback_form',
+    latitude: 25.033964, // Near Taipei 101
+    longitude: 121.564472,
   },
   {
     id: 'c-2',
     name: 'Ace High 台北',
-    description: '專注於推廣健康撲克運動。新手友善。(已驗證俱樂部)',
+    description: 'Ace High 專注於推廣健康撲克運動，打造一個新手友善且充滿活力的競技社群。我們特別設立了新手教學桌，由專業教練手把手指導，讓您快速掌握德州撲克的精髓。\n\n每週五舉辦的「狂歡夜」更是吸引無數玩家共襄盛舉，現場氣氛熱烈，是結交牌友的最佳場所。(已驗證協會)',
     bannerUrl: 'https://images.unsplash.com/photo-1544552866-d3ed42536cfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
     tier: 'Emerald',
     localId: 'AH-007',
     currency: 'USD',
     feedbackUrl: 'https://forms.gle/placeholder_feedback_form',
+    latitude: 25.042250, // Near Zhongxiao Dunhua
+    longitude: 121.551300,
   },
   {
     id: 'c-3',
     name: '皇家同花順競技場',
-    description: '全台最大規模賽事場地。',
+    description: '全台最大規模賽事場地，擁有超過 30 張專業比賽桌，可同時容納數百名玩家同場競技。我們定期承辦大型國際巡迴賽事，是台灣撲克通往世界的橋樑。\n\n場館位於交通便利的市中心，周邊機能完善。加入我們，體驗最刺激的大型錦標賽氛圍！',
     bannerUrl: 'https://images.unsplash.com/photo-1605870445919-838d190e8e1b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
     tier: 'Diamond',
     localId: 'RFA-999',
     currency: 'USD',
+    latitude: 25.047800, // Near Taipei Main Station
+    longitude: 121.517100,
   },
 ];
 
@@ -69,6 +75,23 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     clockUrl: 'https://www.youtube.com/watch?v=placeholder',
   },
   {
+    id: 't-demo-1',
+    clubId: 'c-1',
+    name: '新秀練習賽',
+    description: '專為新手設計，體驗實戰氛圍。(測試: 可預約 Demo)',
+    type: '衛星賽',
+    promotionNote: '前三名可獲得週賽門票一張。',
+    buyIn: 1000,
+    fee: 100,
+    startingChips: 10000,
+    startTime: new Date(new Date().setHours(new Date().getHours() + 2)).toISOString(),
+    reservedCount: 5,
+    maxCap: 40,
+    isLateRegEnded: false,
+    lateRegLevel: 4,
+    structure: MOCK_STRUCTURE,
+  },
+  {
     id: 't-2',
     clubId: 'c-1',
     name: '豪客賽',
@@ -78,7 +101,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     buyIn: 10000,
     fee: 1000,
     startingChips: 50000,
-    startTime: new Date(today.setHours(today.getHours() + 4)).toISOString(),
+    startTime: new Date(new Date().setHours(new Date().getHours() + 4)).toISOString(),
     reservedCount: 22, // Over cap
     maxCap: 20,
     isLateRegEnded: false,
@@ -96,7 +119,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     buyIn: 2000,
     fee: 300,
     startingChips: 15000,
-    startTime: new Date(today.setHours(today.getHours() - 2)).toISOString(), // Started ago
+    startTime: new Date(new Date().setHours(new Date().getHours() - 2)).toISOString(), // Started ago
     reservedCount: 45,
     maxCap: 60,
     isLateRegEnded: true, // CLOSED
@@ -113,7 +136,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     buyIn: 1000,
     fee: 100,
     startingChips: 10000,
-    startTime: new Date(today.setDate(today.getDate() - 1)).toISOString(), // Yesterday
+    startTime: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(), // Yesterday
     reservedCount: 50,
     maxCap: 60,
     isLateRegEnded: true,
@@ -139,6 +162,23 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     lateRegLevel: 6,
     structure: MOCK_STRUCTURE,
     clockUrl: 'https://www.youtube.com/watch?v=placeholder',
+  },
+  {
+    id: 't-demo-2',
+    clubId: 'c-2',
+    name: '平日積分賽',
+    description: '平日晚間固定賽事，累積積分換大獎。(測試: 可預約 Demo)',
+    type: '錦標賽',
+    promotionNote: '',
+    buyIn: 1500,
+    fee: 200,
+    startingChips: 20000,
+    startTime: new Date(new Date().setHours(new Date().getHours() + 3, 30)).toISOString(), 
+    reservedCount: 8,
+    maxCap: 40,
+    isLateRegEnded: false,
+    lateRegLevel: 6,
+    structure: MOCK_STRUCTURE,
   },
   {
     id: 't-2-2',
@@ -200,24 +240,26 @@ export const GAME_HISTORY: GameRecord[] = [
     userId: 'u-1',
     date: '2023-10-01T20:00:00Z',
     gameName: '每日深籌賽',
-    clubName: 'Hyper 俱樂部',
+    clubName: 'Hyper 協會',
     buyIn: 3000,
     entryCount: 1,
     seatNumber: 5,
     profit: 5400,
-    type: '錦標賽'
+    type: '錦標賽',
+    points: 50
   },
   {
     id: 'g-2',
     userId: 'u-1',
     date: '2023-10-05T19:00:00Z',
     gameName: '豪客賽',
-    clubName: 'Hyper 俱樂部',
+    clubName: 'Hyper 協會',
     buyIn: 10000,
     entryCount: 2, // Re-entered once
     seatNumber: 8,
     profit: -20000, // Total loss (10000 * 2)
-    type: '錦標賽'
+    type: '錦標賽',
+    points: 10
   },
   {
     id: 'g-3',
@@ -229,7 +271,8 @@ export const GAME_HISTORY: GameRecord[] = [
     entryCount: 1,
     seatNumber: 2,
     profit: 3200,
-    type: '賞金賽'
+    type: '賞金賽',
+    points: 35
   },
   {
     id: 'g-4',
@@ -241,6 +284,7 @@ export const GAME_HISTORY: GameRecord[] = [
     entryCount: 1,
     seatNumber: 6,
     profit: 12500,
-    type: '限時錦標賽'
+    type: '限時錦標賽',
+    points: 120
   }
 ];

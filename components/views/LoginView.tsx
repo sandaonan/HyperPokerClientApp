@@ -57,66 +57,90 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-[-20%] left-[-20%] w-[500px] h-[500px] bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#050505]">
+      {/* Subtle Premium Background */}
+      <div 
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+            background: 'radial-gradient(circle at center, #1a1a1a 0%, #050505 80%)'
+        }}
+      />
       
+      {/* Fine texture overlay */}
+      <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'
+      }}></div>
+
       <div className="w-full max-w-sm z-10">
-        <div className="text-center mb-10">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-tr from-primary to-emerald-300 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-               <span className="text-3xl">♠️</span>
+        <div className="text-center mb-12">
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+                <div className="w-20 h-20 bg-gradient-to-br from-[#1c1c1c] to-black rounded-2xl flex items-center justify-center shadow-2xl border border-slate-800">
+                    <span className="text-4xl text-gold drop-shadow-md">♠️</span>
+                </div>
+                {/* Gold accent line */}
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 border-r-2 border-b-2 border-gold rounded-br-lg opacity-60"></div>
+                <div className="absolute -top-2 -left-2 w-8 h-8 border-l-2 border-t-2 border-gold rounded-tl-lg opacity-60"></div>
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">HyperPoker</h1>
-          <p className="text-textMuted mt-2">全球玩家入口</p>
+          <h1 className="text-3xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 tracking-tight">HyperPoker</h1>
+          <p className="text-slate-500 text-sm mt-2 font-medium tracking-wide uppercase">Global Player Access</p>
         </div>
 
-        <div className="bg-surfaceHighlight/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm space-y-4">
-             <h2 className="text-lg font-bold text-white text-center mb-4">
+        <div className="bg-black/40 border border-slate-800 rounded-xl p-8 backdrop-blur-md shadow-2xl relative overflow-hidden group">
+             {/* Top shine */}
+             <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-slate-600 to-transparent opacity-50"></div>
+             
+             <h2 className="text-lg font-medium text-slate-200 text-center mb-6">
                  {mode === 'login' ? '會員登入' : '註冊帳號'}
              </h2>
 
              {error && (
-                 <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded text-xs text-center">
+                 <div className="mb-4 bg-red-950/30 border border-red-900/50 text-red-400 p-3 rounded text-xs text-center flex items-center justify-center gap-2">
+                     <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                      {error}
                  </div>
              )}
 
-             <Input 
-                placeholder="帳號" 
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-             />
-             <Input 
-                type="password"
-                placeholder="密碼" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-             />
-             
-             {mode === 'register' && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    <Input 
-                        type="password"
-                        placeholder="再次確認密碼" 
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                    />
-                </div>
-             )}
+             <div className="space-y-4">
+                <Input 
+                    placeholder="帳號" 
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="bg-black/50 border-slate-700 focus:border-gold/50"
+                />
+                <Input 
+                    type="password"
+                    placeholder="密碼" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-black/50 border-slate-700 focus:border-gold/50"
+                />
+                
+                {mode === 'register' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                        <Input 
+                            type="password"
+                            placeholder="再次確認密碼" 
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="bg-black/50 border-slate-700 focus:border-gold/50"
+                        />
+                    </div>
+                )}
 
-             <Button fullWidth onClick={handleSubmit} disabled={loading}>
-                {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : 
-                 mode === 'login' ? <LogIn className="mr-2" size={18} /> : <UserPlus className="mr-2" size={18} />
-                }
-                {mode === 'login' ? '登入' : '立即註冊'}
-             </Button>
+                <Button fullWidth onClick={handleSubmit} disabled={loading} className="mt-2 h-11 text-base shadow-gold/10">
+                    {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : 
+                    mode === 'login' ? <LogIn className="mr-2" size={18} /> : <UserPlus className="mr-2" size={18} />
+                    }
+                    {mode === 'login' ? '登入' : '立即註冊'}
+                </Button>
+             </div>
 
-             <div className="pt-2 text-center">
+             <div className="pt-6 text-center">
                  <button 
                     onClick={toggleMode}
-                    className="text-xs text-textMuted hover:text-white transition-colors"
+                    className="text-xs text-slate-500 hover:text-gold transition-colors border-b border-transparent hover:border-gold pb-0.5"
                   >
                     {mode === 'login' ? '還沒有帳號？點此註冊' : '已有帳號？返回登入'}
                   </button>
