@@ -7,6 +7,7 @@ import { Badge } from '../ui/Badge';
 import { Tournament, Wallet, Registration } from '../../types';
 import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
+import { THEME } from '../../theme';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -128,9 +129,9 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
       <div className="space-y-6">
         
         {/* New Header Layout */}
-        <div className="relative pb-2 border-b border-slate-800 text-center">
+        <div className={`relative pb-2 border-b ${THEME.border} text-center`}>
            {/* Center Top: Tournament Title */}
-           <h3 className="text-2xl font-bold text-white font-display leading-tight px-2">
+           <h3 className={`text-2xl font-bold ${THEME.textPrimary} font-display leading-tight px-2`}>
                {tournament.name}
            </h3>
            {/* Below Title: Badge */}
@@ -140,11 +141,11 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                </Badge>
            </div>
            
-           <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400">
-               <Calendar size={12} className="text-gold" />
+           <div className={`mt-3 flex items-center justify-center gap-2 text-xs ${THEME.textSecondary}`}>
+               <Calendar size={12} className={THEME.accent} />
                <span>{startTimeObj.toLocaleDateString()}</span>
-               <span className="text-slate-600">|</span>
-               <Clock size={12} className="text-gold" />
+               <span className={THEME.textSecondary}>|</span>
+               <Clock size={12} className={THEME.accent} />
                <span className="font-mono">{startTimeObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
            </div>
         </div>
@@ -152,30 +153,30 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
         {/* 3-Column Info Grid */}
         <div className="grid grid-cols-3 gap-2">
           {/* Col 1: Price */}
-          <div className="bg-surfaceHighlight p-2.5 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-center">
-             <div className="flex items-center gap-1.5 text-slate-400 text-[10px] mb-1 uppercase tracking-wider">
-                <WalletIcon size={12} className="text-gold" />
+          <div className={`bg-[#262626] p-2.5 rounded-lg border ${THEME.border} flex flex-col items-center justify-center text-center`}>
+             <div className={`flex items-center gap-1.5 ${THEME.textSecondary} text-[10px] mb-1 uppercase tracking-wider`}>
+                <WalletIcon size={12} className={THEME.accent} />
                 參賽費用
              </div>
-             <div className="text-gold font-mono text-base font-bold">${totalCost.toLocaleString()}</div>
+             <div className={`${THEME.accent} font-mono text-base font-bold`}>${totalCost.toLocaleString()}</div>
           </div>
           
           {/* Col 2: Stack */}
-          <div className="bg-surfaceHighlight p-2.5 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-center">
-             <div className="flex items-center gap-1.5 text-slate-400 text-[10px] mb-1 uppercase tracking-wider">
-                <Coins size={12} className="text-gold" />
+          <div className={`bg-[#262626] p-2.5 rounded-lg border ${THEME.border} flex flex-col items-center justify-center text-center`}>
+             <div className={`flex items-center gap-1.5 ${THEME.textSecondary} text-[10px] mb-1 uppercase tracking-wider`}>
+                <Coins size={12} className={THEME.accent} />
                 起始計分牌
              </div>
-             <div className="text-white font-mono text-base font-bold">{tournament.startingChips.toLocaleString()}</div>
+             <div className={`${THEME.textPrimary} font-mono text-base font-bold`}>{tournament.startingChips.toLocaleString()}</div>
           </div>
 
           {/* Col 3: Duration */}
-          <div className="bg-surfaceHighlight p-2.5 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-center">
-             <div className="flex items-center gap-1.5 text-slate-400 text-[10px] mb-1 uppercase tracking-wider">
+          <div className={`bg-[#262626] p-2.5 rounded-lg border ${THEME.border} flex flex-col items-center justify-center text-center`}>
+             <div className={`flex items-center gap-1.5 ${THEME.textSecondary} text-[10px] mb-1 uppercase tracking-wider`}>
                 <Hourglass size={12} className="text-blue-400" />
                 比賽時長
              </div>
-             <div className="text-white font-mono text-base font-bold">{durationStr}</div>
+             <div className={`${THEME.textPrimary} font-mono text-base font-bold`}>{durationStr}</div>
           </div>
         </div>
 
@@ -212,31 +213,31 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
         )}
 
         {/* Player List Section & Actions */}
-        <div className="border border-slate-800 rounded-xl overflow-hidden bg-surfaceHighlight/30">
+        <div className={`border ${THEME.border} rounded-xl overflow-hidden bg-[#262626]/30`}>
              {/* Header with Total Count */}
-             <div className="bg-slate-900/50 p-3 flex justify-between items-center border-b border-slate-800">
+             <div className={`${THEME.card}/50 p-3 flex justify-between items-center border-b ${THEME.border}`}>
                  <div className="flex items-center gap-2">
-                     <Users size={14} className="text-slate-400" />
-                     <span className="text-sm font-bold text-slate-200">目前參賽</span>
+                     <Users size={14} className={THEME.textSecondary} />
+                     <span className={`text-sm font-bold ${THEME.textPrimary}`}>目前參賽</span>
                  </div>
-                 <div className={`font-mono text-sm font-bold ${tournament.reservedCount >= tournament.maxCap ? 'text-danger' : 'text-white'}`}>
+                 <div className={`font-mono text-sm font-bold ${tournament.reservedCount >= tournament.maxCap ? 'text-red-500' : THEME.textPrimary}`}>
                      {isEnded ? tournament.reservedCount : `${tournament.reservedCount} / ${tournament.maxCap}`}
-                     <span className="text-xs text-slate-500 font-normal ml-1">人</span>
+                     <span className={`text-xs ${THEME.textSecondary} font-normal ml-1`}>人</span>
                  </div>
              </div>
 
-             <div className="flex border-b border-slate-800">
+             <div className={`flex border-b ${THEME.border}`}>
                  {!isEnded && (
                      <button 
                         onClick={() => setListTab('reserved')}
-                        className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'reserved' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800'}`}
+                        className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'reserved' ? `${THEME.buttonSecondary} ${THEME.textPrimary}` : `${THEME.textSecondary} ${THEME.cardHover}`}`}
                      >
                         預約名單 ({reservedList.length})
                      </button>
                  )}
                  <button 
                     onClick={() => setListTab('paid')}
-                    className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'paid' ? 'bg-emerald-900/40 text-emerald-400' : 'text-slate-400 hover:bg-slate-800'}`}
+                    className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'paid' ? 'bg-brand-green/40 text-brand-green' : `${THEME.textSecondary} ${THEME.cardHover}`}`}
                  >
                     {isEnded ? `參賽名單` : `已繳費 (${paidPlayers.length})`}
                  </button>
@@ -247,13 +248,13 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                      reservedList.length > 0 ? (
                          <div className="space-y-3">
                              {/* Main List */}
-                             <div className="text-xs text-slate-500 font-bold uppercase mb-1">正選名單 ({mainReservedList.length} / {tournament.maxCap})</div>
+                             <div className={`text-xs ${THEME.textSecondary} font-bold uppercase mb-1`}>正選名單 ({mainReservedList.length} / {tournament.maxCap})</div>
                              <div className="grid grid-cols-2 gap-2">
                                  {mainReservedList.map((p, idx) => {
                                      const isMe = userWallet && p.userId === userWallet.userId;
                                      return (
-                                         <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-gold/20 border border-gold/30 text-gold font-bold' : 'text-slate-400 bg-slate-900/50'}`}>
-                                             <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">{idx + 1}</span>
+                                         <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-brand-green/20 border border-brand-green/30 text-brand-green font-bold' : `${THEME.textSecondary} ${THEME.card}/50`}`}>
+                                             <span className={`w-5 h-5 rounded-full ${THEME.card} flex items-center justify-center text-[10px]`}>{idx + 1}</span>
                                              <span>ID: {p.userLocalId}</span>
                                              {isMe && <span className="ml-auto text-[10px]">(我)</span>}
                                          </div>
@@ -263,7 +264,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                              
                              {/* Waiting List */}
                              {waitingList.length > 0 && (
-                                 <div className="pt-2 border-t border-slate-800/50">
+                                 <div className={`pt-2 border-t ${THEME.border}/50`}>
                                      <div className="text-xs text-red-400 font-bold uppercase mb-1 flex items-center gap-1">
                                          <List size={12} /> 候補名單 ({waitingList.length})
                                      </div>
@@ -271,7 +272,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                          {waitingList.map((p, idx) => {
                                              const isMe = userWallet && p.userId === userWallet.userId;
                                              return (
-                                                 <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-red-500/20 border border-red-500/30 text-red-300 font-bold' : 'text-slate-500 bg-slate-900/30 dashed-border border-slate-800'}`}>
+                                                 <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-red-500/20 border border-red-500/30 text-red-300 font-bold' : `${THEME.textSecondary} ${THEME.card}/30 dashed-border ${THEME.border}`}`}>
                                                      <span className="w-5 h-5 rounded-full bg-red-900/30 flex items-center justify-center text-[10px] text-red-400">W{idx + 1}</span>
                                                      <span>ID: {p.userLocalId}</span>
                                                      {isMe && <span className="ml-auto text-[10px]">(我)</span>}
@@ -282,31 +283,31 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                  </div>
                              )}
                          </div>
-                     ) : <p className="text-center text-xs text-slate-500 py-2">尚無預約</p>
+                     ) : <p className={`text-center text-xs ${THEME.textSecondary} py-2`}>尚無預約</p>
                  ) : (
                      paidPlayers.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2">
                             {paidPlayers.map((p, idx) => {
                                 const isMe = (userWallet && p.userId === userWallet.userId) || (registration && p.userId === registration.userId);
                                 return (
-                                    <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold' : 'text-slate-400 bg-slate-900/50'}`}>
-                                        <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">{idx + 1}</span>
+                                    <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-brand-green/20 border border-brand-green/30 text-brand-green font-bold' : `${THEME.textSecondary} ${THEME.card}/50`}`}>
+                                        <span className={`w-5 h-5 rounded-full ${THEME.card} flex items-center justify-center text-[10px]`}>{idx + 1}</span>
                                         <span>ID: {p.userLocalId || '888'}</span>
                                         {isMe && <span className="ml-auto text-[10px]">(我)</span>}
                                     </div>
                                 );
                             })}
                         </div>
-                    ) : <p className="text-center text-xs text-slate-500 py-2">尚無資料</p>
+                    ) : <p className={`text-center text-xs ${THEME.textSecondary} py-2`}>尚無資料</p>
                  )}
              </div>
 
              {/* Integrated Action Area in Footer of Player List */}
-             <div className="border-t border-slate-800 p-4 bg-slate-900/80">
+             <div className={`border-t ${THEME.border} p-4 ${THEME.card}/80`}>
                 {isEnded ? (
                     <div className="text-center">
-                        <p className="text-slate-400 text-sm flex items-center justify-center gap-2">
-                            <Trophy size={14} className="text-gold" /> 此賽事已結束
+                        <p className={`${THEME.textSecondary} text-sm flex items-center justify-center gap-2`}>
+                            <Trophy size={14} className={THEME.accent} /> 此賽事已結束
                         </p>
                     </div>
                 ) : registration ? (
@@ -335,9 +336,9 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                 </div>
                                 {/* Weakened Wallet Display */}
                                 <div className="flex justify-between items-center px-1">
-                                     <span className="text-xs text-slate-500">儲值金餘額</span>
+                                     <span className={`text-xs ${THEME.textSecondary}`}>儲值金餘額</span>
                                      <div className="flex items-center gap-2">
-                                        <span className={`font-mono font-bold text-xs ${canAfford ? 'text-slate-300' : 'text-red-500'}`}>
+                                        <span className={`font-mono font-bold text-xs ${canAfford ? THEME.textPrimary : 'text-red-500'}`}>
                                             ${currentBalance.toLocaleString()}
                                         </span>
                                         {!canAfford && <AlertTriangle size={12} className="text-red-500" />}
@@ -345,7 +346,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                 </div>
                             </>
                         ) : (
-                            <div className="flex items-center justify-center gap-2 py-2 text-emerald-400 text-sm font-bold">
+                            <div className={`flex items-center justify-center gap-2 py-2 text-brand-green text-sm font-bold`}>
                                 <ShieldCheck size={16} /> 已完成報名
                             </div>
                         )}
@@ -354,17 +355,17 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     // Unregistered State
                     <div className="space-y-2">
                          {isClosed ? (
-                             <div className="flex items-center justify-center gap-2 text-slate-500 text-sm">
+                             <div className={`flex items-center justify-center gap-2 ${THEME.textSecondary} text-sm`}>
                                  <Lock size={14} /> 報名已截止
                              </div>
                          ) : (
                             <>
-                                <Button type="button" fullWidth variant="secondary" onClick={handleReserveClick} className="h-10 border-amber-500/50 text-amber-500 hover:bg-amber-500/10">
+                                <Button type="button" fullWidth variant="secondary" onClick={handleReserveClick} className="h-10 border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10">
                                     <span className="text-sm font-bold">
                                         {isFull ? "加入候補 (Join Waitlist)" : "預約席位"}
                                     </span>
                                 </Button>
-                                {isFull && <div className="text-center text-[10px] text-slate-500">* 目前名額已滿，您將被列入候補名單。</div>}
+                                {isFull && <div className={`text-center text-[10px] ${THEME.textSecondary}`}>* 目前名額已滿，您將被列入候補名單。</div>}
                             </>
                          )}
                     </div>
@@ -378,22 +379,22 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                 href={tournament.clockUrl} 
                 target="_blank" 
                 rel="noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-3 bg-surfaceHighlight border border-slate-700 rounded-lg text-slate-300 hover:text-white hover:border-slate-500 transition-all shadow-sm group"
+                className={`flex items-center justify-center gap-2 w-full py-3 ${THEME.card} border ${THEME.border} rounded-lg ${THEME.textPrimary} hover:${THEME.textPrimary} hover:border-brand-green transition-all shadow-sm group`}
             >
-                <ExternalLink size={16} className="text-gold group-hover:scale-110 transition-transform" />
+                <ExternalLink size={16} className={`${THEME.accent} group-hover:scale-110 transition-transform`} />
                 <span className="font-bold text-sm">觀看賽事時鐘 (Tournament Clock)</span>
             </a>
         )}
 
         {/* Structure Info */}
         <div className="pt-2">
-           <div className="flex items-center gap-2 mb-3 text-gold">
+           <div className={`flex items-center gap-2 mb-3 ${THEME.accent}`}>
               <Clock size={16} />
               <h4 className="font-bold text-sm tracking-wide">盲注結構表 (STRUCTURE)</h4>
            </div>
-           <div className="border border-slate-700 rounded-lg overflow-hidden">
+           <div className={`border ${THEME.border} rounded-lg overflow-hidden`}>
               <table className="w-full text-left text-sm">
-                 <thead className="bg-slate-800 text-slate-400 text-xs uppercase">
+                 <thead className={`${THEME.card} ${THEME.textSecondary} text-xs uppercase`}>
                     <tr>
                        <th className="p-3 font-medium w-12">級別</th>
                        <th className="p-3 font-medium">盲注 (SB/BB)</th>
@@ -401,7 +402,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                        <th className="p-3 font-medium text-right">時間</th>
                     </tr>
                  </thead>
-                 <tbody className="divide-y divide-slate-800 bg-slate-900/50">
+                 <tbody className={`divide-y ${THEME.border.replace('border', 'divide')} ${THEME.card}/50`}>
                     {tournament.structure?.map((level) => {
                        accumulatedMinutes += level.duration;
                        const isCutoff = level.level === tournament.lateRegLevel;
@@ -412,10 +413,10 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                        return (
                            <React.Fragment key={level.level}>
                                <tr className={isCutoff ? 'bg-red-900/10' : ''}>
-                                  <td className="p-3 text-slate-500 text-center">{level.level}</td>
-                                  <td className="p-3 text-white font-mono">{level.smallBlind.toLocaleString()}/{level.bigBlind.toLocaleString()}</td>
-                                  <td className="p-3 text-slate-400 font-mono">{level.ante > 0 ? level.ante : '-'}</td>
-                                  <td className="p-3 text-slate-400 text-right">{level.duration}m</td>
+                                  <td className={`p-3 ${THEME.textSecondary} text-center`}>{level.level}</td>
+                                  <td className={`p-3 ${THEME.textPrimary} font-mono`}>{level.smallBlind.toLocaleString()}/{level.bigBlind.toLocaleString()}</td>
+                                  <td className={`p-3 ${THEME.textPrimary} font-mono`}>{level.ante > 0 ? level.ante : '-'}</td>
+                                  <td className={`p-3 ${THEME.textPrimary} text-right`}>{level.duration}m</td>
                                </tr>
                                {isCutoff && (
                                    <tr className="bg-red-500/10 border-t border-b border-red-500/20">

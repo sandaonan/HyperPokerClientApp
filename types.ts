@@ -13,6 +13,7 @@ export interface User {
   mobile?: string;
   mobileVerified?: boolean; // Added for OTP
   birthday?: string;
+  gender?: 'male' | 'female' | 'other'; // Added: Gender field
   isForeigner?: boolean;
   kycUploaded?: boolean;
   isProfileComplete: boolean;
@@ -63,6 +64,7 @@ export interface Wallet {
   points: number;  // 積分
   joinDate: string; // ISO Date Added
   status: MembershipStatus;
+  kycStatus?: 'verified' | 'unverified' | null; // KYC verification status
 }
 
 export interface BlindLevel {

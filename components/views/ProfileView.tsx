@@ -9,6 +9,7 @@ import { User, Wallet } from '../../types';
 import { SEED_CLUBS, GAME_HISTORY } from '../../constants';
 import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
+import { THEME } from '../../theme';
 
 interface ProfileViewProps {
   user: User;
@@ -36,10 +37,10 @@ const BirthdaySelector = ({ value, onChange, disabled }: { value: string, onChan
 
     return (
         <div className="w-full">
-            <label className="block text-xs font-medium text-textMuted mb-1.5">生日 (西元 / 月 / 日)</label>
+            <label className={`block text-xs font-medium ${THEME.textSecondary} mb-1.5`}>生日 (西元 / 月 / 日)</label>
             <div className="flex gap-2 w-full">
                 <select 
-                   className={`bg-surface border border-slate-800 rounded-lg p-2.5 text-sm text-white flex-1 outline-none focus:border-gold min-w-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                   className={`${THEME.input} rounded-lg p-2.5 text-sm flex-1 outline-none focus:border-brand-green min-w-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                    value={selYear}
                    onChange={(e) => updateDate(Number(e.target.value), selMonth, selDay)}
                    disabled={disabled}
@@ -47,7 +48,7 @@ const BirthdaySelector = ({ value, onChange, disabled }: { value: string, onChan
                     {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
                 <select 
-                   className={`bg-surface border border-slate-800 rounded-lg p-2.5 text-sm text-white flex-1 outline-none focus:border-gold min-w-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                   className={`${THEME.input} rounded-lg p-2.5 text-sm flex-1 outline-none focus:border-brand-green min-w-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                    value={selMonth}
                    onChange={(e) => updateDate(selYear, Number(e.target.value), selDay)}
                    disabled={disabled}
@@ -55,7 +56,7 @@ const BirthdaySelector = ({ value, onChange, disabled }: { value: string, onChan
                     {months.map(m => <option key={m} value={m}>{m}月</option>)}
                 </select>
                 <select 
-                   className={`bg-surface border border-slate-800 rounded-lg p-2.5 text-sm text-white flex-1 outline-none focus:border-gold min-w-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                   className={`${THEME.input} rounded-lg p-2.5 text-sm flex-1 outline-none focus:border-brand-green min-w-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                    value={selDay}
                    onChange={(e) => updateDate(selYear, selMonth, Number(e.target.value))}
                    disabled={disabled}
@@ -95,7 +96,7 @@ const MileageCircle = ({ current, total }: { current: number, total: number }) =
                     />
                     {/* Progress */}
                     <circle
-                        className="text-gold transition-all duration-1000 ease-out drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]"
+                        className={`${THEME.accent} transition-all duration-1000 ease-out drop-shadow-[0_0_8px_rgba(6,193,103,0.5)]`}
                         strokeWidth={strokeWidth}
                         strokeDasharray={circumference}
                         strokeDashoffset={offset}
@@ -128,6 +129,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
     name: user.name || '',
     nationalId: user.nationalId || '',
     birthday: user.birthday || '',
+    gender: user.gender || undefined as 'male' | 'female' | 'other' | undefined,
   });
   const [kycUploaded, setKycUploaded] = useState(user.kycUploaded || false);
   const [activeTab, setActiveTab] = useState<'info' | 'club'>('info');
@@ -136,6 +138,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   
   // Membership Card Modal
   const [showMemberCard, setShowMemberCard] = useState<string | null>(null); // Store Club ID
+
+  // Check if nickname or mobile has changed
+  const nicknameChanged = nickname !== (user.nickname || '');
+  const mobileChanged = mobile !== (user.mobile || '');
+
+  // Update state when user prop changes
+  useEffect(() => {
+    setNickname(user.nickname || '');
+    setMobile(user.mobile || '');
+    setSensitiveData({
+      name: user.name || '',
+      nationalId: user.nationalId || '',
+      birthday: user.birthday || '',
+      gender: user.gender || undefined,
+    });
+    setKycUploaded(user.kycUploaded || false);
+  }, [user]);
 
   useEffect(() => {
       const fetchWallets = async () => {
@@ -152,27 +171,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
     setSensitiveData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleReverifyMobile = async () => {
-      const newMobile = await showPrompt("變更手機號碼", "請輸入新的手機號碼：");
-      if (newMobile) {
-          const code = await showPrompt("驗證手機", `驗證碼已發送至 ${newMobile} (模擬碼: 1234)。\n請輸入驗證碼：`);
-          if (code === '1234') {
-              setMobile(newMobile);
-              mockApi.updateUserProfile({ ...user, mobile: newMobile }).then(u => {
-                  onUpdateUser(u);
-                  showAlert("成功", "手機號碼更新成功！");
-              });
-          } else if (code !== null) {
-              showAlert("錯誤", "驗證碼錯誤");
-          }
+  const handleSaveMobile = async () => {
+      if (!mobile || mobile.trim() === '') {
+          showAlert("錯誤", "請輸入手機號碼");
+          return;
+      }
+      try {
+          const updatedUser = await mockApi.updateUserProfile({ ...user, mobile });
+          onUpdateUser(updatedUser);
+          // Reset mobile state to match updated user to trigger button color change
+          setMobile(updatedUser.mobile || '');
+          showAlert("成功", "手機號碼更新成功！");
+      } catch (e: any) {
+          showAlert("錯誤", e.message || "更新失敗");
       }
   };
 
-  const handleSaveNickname = () => {
-      mockApi.updateUserProfile({ ...user, nickname }).then(u => {
-          onUpdateUser(u);
+  const handleSaveNickname = async () => {
+      try {
+          const updatedUser = await mockApi.updateUserProfile({ ...user, nickname });
+          onUpdateUser(updatedUser);
+          // Reset nickname state to match updated user to trigger button color change
+          setNickname(updatedUser.nickname || '');
           showAlert("成功", "暱稱已更新");
-      });
+      } catch (e: any) {
+          showAlert("錯誤", e.message || "更新失敗");
+      }
   };
 
   const handleUploadKyc = () => {
@@ -192,7 +216,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           return;
       }
 
-      if (user.isProfileComplete) {
+      const isUpdatingExistingProfile = user.isProfileComplete && 
+          (user.name !== sensitiveData.name || 
+           user.nationalId !== sensitiveData.nationalId || 
+           user.birthday !== sensitiveData.birthday);
+
+      if (isUpdatingExistingProfile) {
           const confirmed = await showConfirm(
               "重要提醒",
               "⚠️ 修改身份資料（姓名、證件、生日）將導致您在所有協會的會員狀態變更為「待驗證」。\n\n您必須重新前往協會櫃檯進行真人核對，否則將無法報名賽事。\n\n確定要保存變更嗎？"
@@ -201,11 +230,37 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       }
 
       try {
+          // If updating existing profile, reset KYC status for all clubs BEFORE updating user data
+          if (isUpdatingExistingProfile) {
+              try {
+                  const memberId = parseInt(user.id);
+                  console.log('[ProfileView] Checking KYC reset - user.id:', user.id, 'memberId:', memberId);
+                  if (!isNaN(memberId)) {
+                      const { resetKycStatusForAllClubs } = await import('../../services/supabaseClubMember');
+                      const { isSupabaseAvailable } = await import('../../lib/supabaseClient');
+                      if (isSupabaseAvailable()) {
+                          console.log('[ProfileView] Resetting KYC status for member:', memberId);
+                          await resetKycStatusForAllClubs(memberId);
+                          console.log('[ProfileView] KYC status reset successfully for all clubs');
+                      } else {
+                          console.warn('[ProfileView] Supabase not available, skipping KYC reset');
+                      }
+                  } else {
+                      console.warn('[ProfileView] Invalid member ID, cannot reset KYC status');
+                  }
+              } catch (e: any) {
+                  console.error('[ProfileView] Failed to reset KYC status:', e);
+                  // Show error but don't block the update
+                  await showAlert("警告", "身份資料已更新，但 KYC 狀態更新失敗：" + e.message);
+              }
+          }
+          
           const updatedUser = await mockApi.updateUserSensitiveData({
               ...user,
               ...sensitiveData,
               kycUploaded
           });
+          
           onUpdateUser(updatedUser);
           setIsEditingIdentity(false);
           await showAlert("更新成功", "身份資料已更新。請記得至協會櫃檯完成驗證。");
@@ -234,34 +289,34 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       
       <div className="flex items-center gap-4 mb-8">
         <div className="relative">
-          <div className="w-20 h-20 rounded-full bg-surface border-2 border-gold flex items-center justify-center overflow-hidden shadow-lg shadow-gold/20">
+          <div className={`w-20 h-20 rounded-full ${THEME.card} border-2 border-brand-green flex items-center justify-center overflow-hidden shadow-lg shadow-brand-green/20`}>
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <span className="text-3xl">♠️</span>
             )}
           </div>
-          <button className="absolute bottom-0 right-0 bg-gold text-black p-1.5 rounded-full shadow-lg border-2 border-surface">
+          <button className={`absolute bottom-0 right-0 bg-brand-green text-black p-1.5 rounded-full shadow-lg border-2 ${THEME.card}`}>
             <Camera size={14} />
           </button>
         </div>
         <div>
-           <h3 className="text-xl font-bold text-white">{nickname || user.name || "新玩家"}</h3>
-           <p className={`text-sm font-medium ${user.isProfileComplete ? 'text-gold' : 'text-slate-500'}`}>
+           <h3 className={`text-xl font-bold ${THEME.textPrimary}`}>{nickname || user.name || "新玩家"}</h3>
+           <p className={`text-sm font-medium ${user.isProfileComplete ? THEME.accent : THEME.textSecondary}`}>
                {user.isProfileComplete ? '✨ 已填寫實名資料' : '未完成設置'}
            </p>
         </div>
       </div>
 
-      <div className="flex border-b border-slate-800 mb-6">
+      <div className={`flex border-b ${THEME.border} mb-6`}>
         <button
-          className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'info' ? 'text-gold border-b-2 border-gold' : 'text-textMuted hover:text-slate-300'}`}
+          className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'info' ? `${THEME.accent} border-b-2 border-brand-green` : `${THEME.textSecondary} hover:${THEME.textPrimary}`}`}
           onClick={() => setActiveTab('info')}
         >
           身份與設定
         </button>
         <button
-          className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'club' ? 'text-gold border-b-2 border-gold' : 'text-textMuted hover:text-slate-300'}`}
+          className={`flex-1 pb-3 text-sm font-medium transition-colors ${activeTab === 'club' ? `${THEME.accent} border-b-2 border-brand-green` : `${THEME.textSecondary} hover:${THEME.textPrimary}`}`}
           onClick={() => setActiveTab('club')}
         >
           協會
@@ -272,20 +327,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       {activeTab === 'info' && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
           {/* Identity Section Code (unchanged) */}
-          <div className={`p-5 rounded-2xl border space-y-4 relative overflow-hidden transition-colors ${isEditingIdentity ? 'bg-surfaceHighlight border-gold/50 shadow-gold/10 shadow-lg' : 'bg-surface border-slate-800'}`}>
+          <div className={`p-5 rounded-2xl border space-y-4 relative overflow-hidden transition-colors ${isEditingIdentity ? `bg-[#262626] border-brand-green/50 shadow-brand-green/10 shadow-lg` : `${THEME.card} ${THEME.border}`}`}>
                 <div className="flex items-center justify-between">
-                     <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${isEditingIdentity ? 'text-gold' : 'text-slate-400'}`}>
+                     <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${isEditingIdentity ? THEME.accent : THEME.textSecondary}`}>
                          <Lock size={14} /> 身份與證件驗證
                      </h3>
                      {!isEditingIdentity ? (
                          <button 
                             onClick={() => setIsEditingIdentity(true)}
-                            className="text-xs flex items-center gap-1 text-primary hover:text-primaryHover transition-colors px-2 py-1 rounded bg-primary/10 border border-primary/20"
+                            className={`text-xs flex items-center gap-1 ${THEME.accent} hover:text-brand-green transition-colors px-2 py-1 rounded bg-brand-green/10 border border-brand-green/20`}
                          >
                             <Edit2 size={12} /> 編輯
                          </button>
                      ) : (
-                         <span className="text-xs text-gold animate-pulse font-medium">編輯中...</span>
+                         <span className={`text-xs ${THEME.accent} animate-pulse font-medium`}>編輯中...</span>
                      )}
                 </div>
 
@@ -319,9 +374,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         onChange={(val) => handleSensitiveChange('birthday', val)} 
                         disabled={!isEditingIdentity}
                     />
+
+                    <div className="w-full">
+                        <label className={`block text-xs font-medium ${THEME.textSecondary} mb-1.5`}>性別</label>
+                        <select 
+                            className={`${THEME.input} rounded-lg p-2.5 text-sm w-full outline-none focus:border-brand-green ${!isEditingIdentity ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            value={sensitiveData.gender || ''}
+                            onChange={(e) => handleSensitiveChange('gender', e.target.value || undefined)}
+                            disabled={!isEditingIdentity}
+                        >
+                            <option value="">請選擇</option>
+                            <option value="male">男</option>
+                            <option value="female">女</option>
+                            <option value="other">傾向不透露</option>
+                        </select>
+                    </div>
                     
                     <div className="pt-2">
-                        <label className="text-xs font-medium text-textMuted mb-2 block">證件驗證 (上傳)</label>
+                        <label className={`text-xs font-medium ${THEME.textSecondary} mb-2 block`}>證件驗證 (上傳)</label>
                         {kycUploaded ? (
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg">
@@ -333,7 +403,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                                 {isEditingIdentity && (
                                     <button 
                                         onClick={() => setKycUploaded(false)}
-                                        className="text-xs text-slate-400 underline hover:text-white flex items-center gap-1 self-end"
+                                        className={`text-xs ${THEME.textSecondary} underline hover:${THEME.textPrimary} flex items-center gap-1 self-end`}
                                     >
                                         <RefreshCw size={10} /> 重新上傳證件
                                     </button>
@@ -342,15 +412,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         ) : (
                             isEditingIdentity ? (
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={handleUploadKyc} className="bg-slate-800 border border-dashed border-slate-600 rounded-lg py-3 flex items-center justify-center gap-2 text-slate-400 hover:text-white hover:border-gold hover:bg-gold/5 transition-all">
+                                    <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
                                         <Upload size={14} /> <span className="text-xs">正面</span>
                                     </button>
-                                    <button onClick={handleUploadKyc} className="bg-slate-800 border border-dashed border-slate-600 rounded-lg py-3 flex items-center justify-center gap-2 text-slate-400 hover:text-white hover:border-gold hover:bg-gold/5 transition-all">
+                                    <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
                                         <Upload size={14} /> <span className="text-xs">反面</span>
                                     </button>
                                 </div>
                             ) : (
-                                <div className="text-xs text-slate-500 italic">未上傳</div>
+                                <div className={`text-xs ${THEME.textSecondary} italic`}>未上傳</div>
                             )
                         )}
                     </div>
@@ -358,7 +428,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
 
                 {isEditingIdentity && (
                     <div className="flex gap-3 pt-2">
-                        <Button variant="ghost" fullWidth onClick={() => setIsEditingIdentity(false)} className="border border-slate-700">取消</Button>
+                        <Button variant="ghost" fullWidth onClick={() => setIsEditingIdentity(false)} className={`border ${THEME.border}`}>取消</Button>
                         <Button variant="primary" fullWidth onClick={handleSaveIdentity}>
                             <Save size={16} className="mr-2" /> 保存變更
                         </Button>
@@ -366,10 +436,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                 )}
           </div>
 
-          <div className="h-px bg-slate-800 w-full my-2"></div>
+          <div className={`h-px ${THEME.border.replace('border', 'bg')} w-full my-2`}></div>
           
           <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">一般設定</h3>
+              <h3 className={`text-sm font-bold ${THEME.textSecondary} uppercase tracking-wider`}>一般設定</h3>
               
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
@@ -379,28 +449,50 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         onChange={(e) => setNickname(e.target.value)}
                     />
                 </div>
-                <Button size="md" className="mb-[1px] shrink-0 whitespace-nowrap" variant="secondary" onClick={handleSaveNickname}>更新</Button>
+                <Button 
+                    size="md" 
+                    className={`mb-[1px] shrink-0 whitespace-nowrap transition-colors ${
+                        nicknameChanged 
+                            ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white' 
+                            : ''
+                    }`}
+                    variant={nicknameChanged ? "primary" : "secondary"} 
+                    onClick={handleSaveNickname}
+                >
+                    更新
+                </Button>
               </div>
 
-              <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <label className="text-xs font-medium text-textMuted">手機號碼</label>
-                        <button 
-                            onClick={handleReverifyMobile}
-                            className="text-[10px] text-primary hover:text-primaryHover underline"
-                        >
-                            重新驗證 / 變更
-                        </button>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                    <div className="space-y-2">
+                        <label className={`text-xs font-medium ${THEME.textSecondary}`}>手機號碼</label>
+                        <div className="relative">
+                            <Smartphone className={`absolute top-2.5 left-3 ${THEME.textSecondary}`} size={16} />
+                            <Input
+                                placeholder="請輸入手機號碼"
+                                value={mobile}
+                                onChange={(e) => setMobile(e.target.value)}
+                                className="pl-10"
+                            />
+                            {mobile && (
+                                <CheckCircle className="absolute top-2.5 right-3 text-emerald-500 pointer-events-none" size={16} />
+                            )}
+                        </div>
                     </div>
-                    <div className="relative">
-                        <Smartphone className="absolute top-2.5 left-3 text-slate-500" size={16} />
-                        <input
-                            className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-slate-400 cursor-not-allowed"
-                            value={mobile}
-                            disabled
-                        />
-                        <CheckCircle className="absolute top-2.5 right-3 text-emerald-500" size={16} />
-                    </div>
+                </div>
+                <Button 
+                    size="md" 
+                    className={`mb-[1px] shrink-0 whitespace-nowrap transition-colors ${
+                        mobileChanged 
+                            ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white' 
+                            : ''
+                    }`}
+                    variant={mobileChanged ? "primary" : "secondary"} 
+                    onClick={handleSaveMobile}
+                >
+                    更新
+                </Button>
               </div>
           </div>
 
@@ -416,10 +508,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                     <div 
                         key={wallet.clubId}
                         onClick={() => setShowMemberCard(wallet.clubId)}
-                        className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 shadow-lg relative overflow-hidden cursor-pointer group hover:border-gold/30 hover:shadow-gold/10 transition-all active:scale-[0.98] mb-4"
+                        className={`bg-gradient-to-br from-brand-dark to-[#0f0f0f] p-6 rounded-2xl border ${THEME.border} shadow-lg relative overflow-hidden cursor-pointer group hover:border-brand-green/30 hover:shadow-brand-green/10 transition-all active:scale-[0.98] mb-4`}
                     >
                         <div className="absolute top-0 right-0 p-4">
-                            <div className="flex items-center gap-1 text-xs text-slate-500 group-hover:text-gold transition-colors">
+                            <div className={`flex items-center gap-1 text-xs ${THEME.textSecondary} group-hover:${THEME.accent} transition-colors`}>
                                 查看會員卡 <ChevronRight size={14} />
                             </div>
                         </div>
@@ -438,30 +530,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                             </div>
                             <div>
                                 <h3 className="font-bold text-lg font-display">{club.name}</h3>
-                                <p className="text-xs text-slate-400">ID: {club.localId}</p>
+                                <p className={`text-xs ${THEME.textSecondary}`}>ID: {club.localId}</p>
                             </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-1">
-                                <p className="text-xs text-slate-500 uppercase tracking-wider">會員等級</p>
+                                <p className={`text-xs ${THEME.textSecondary} uppercase tracking-wider`}>會員等級</p>
                                 <p className="text-xl font-bold text-white font-display">{club.tier}</p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-xs text-slate-500 uppercase tracking-wider">加入時間</p>
-                                <p className="text-sm font-mono text-white">
+                                <p className={`text-xs ${THEME.textSecondary} uppercase tracking-wider`}>加入時間</p>
+                                <p className={`text-sm font-mono ${THEME.textPrimary}`}>
                                     {new Date(wallet.joinDate).toLocaleDateString()}
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-xs text-slate-500 uppercase tracking-wider">儲值金餘額</p>
+                                <p className={`text-xs ${THEME.textSecondary} uppercase tracking-wider`}>儲值金餘額</p>
                                 <p className="text-xl font-bold font-mono text-emerald-400">
                                     ${wallet.balance.toLocaleString()}
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-xs text-slate-500 uppercase tracking-wider">積分</p>
-                                <p className="text-xl font-bold font-mono text-gold">
+                                <p className={`text-xs ${THEME.textSecondary} uppercase tracking-wider`}>積分</p>
+                                <p className={`text-xl font-bold font-mono ${THEME.accent}`}>
                                     {wallet.points.toLocaleString()} P
                                 </p>
                             </div>
@@ -471,13 +563,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
              })}
              
              {myWallets.length === 0 && (
-                 <div className="text-center py-8 text-slate-500 text-sm">尚未加入任何協會</div>
+                 <div className={`text-center py-8 ${THEME.textSecondary} text-sm`}>尚未加入任何協會</div>
              )}
         </div>
       )}
       </div>
 
-      <div className="mt-8 pt-6 border-t border-slate-800">
+      <div className={`mt-8 pt-6 border-t ${THEME.border}`}>
          <button 
            onClick={onLogout}
            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-danger hover:bg-danger/10 transition-colors font-medium"
@@ -528,7 +620,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                              maskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)',
                              WebkitMaskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)'
                          }}></div>
-                         <div className="text-black font-mono text-xs font-bold tracking-widest text-slate-800">2967089445</div>
+                         <div className={`text-black font-mono text-xs font-bold tracking-widest ${THEME.textSecondary}`}>2967089445</div>
                      </div>
                  </div>
              </div>
@@ -537,14 +629,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
              <MileageCircle current={selectedWallet?.points || 0} total={3000} />
 
              {/* 3. Financial Info & Feedback */}
-             <div className="w-full bg-surfaceHighlight rounded-xl p-4 border border-slate-700 space-y-3 mt-2">
-                 <div className="flex justify-between items-center border-b border-slate-700 pb-2">
-                     <span className="text-sm text-slate-400">預繳報名費餘額</span>
-                     <span className="font-mono font-bold text-white">${selectedWallet?.balance.toLocaleString()}</span>
+             <div className={`w-full bg-[#262626] rounded-xl p-4 border ${THEME.border} space-y-3 mt-2`}>
+                 <div className={`flex justify-between items-center border-b ${THEME.border} pb-2`}>
+                     <span className={`text-sm ${THEME.textSecondary}`}>預繳報名費餘額</span>
+                     <span className={`font-mono font-bold ${THEME.textPrimary}`}>${selectedWallet?.balance.toLocaleString()}</span>
                  </div>
                  <div className="flex justify-between items-center">
-                     <span className="text-sm text-slate-400">歷史總獎金</span>
-                     <span className="font-mono font-bold text-gold">${totalWinnings.toLocaleString()}</span>
+                     <span className={`text-sm ${THEME.textSecondary}`}>歷史總獎金</span>
+                     <span className={`font-mono font-bold ${THEME.accent}`}>${totalWinnings.toLocaleString()}</span>
                  </div>
              </div>
              

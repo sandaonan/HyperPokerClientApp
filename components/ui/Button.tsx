@@ -1,4 +1,5 @@
 import React from 'react';
+import { THEME } from '../../theme';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -17,12 +18,12 @@ export const Button: React.FC<ButtonProps> = ({
   const baseStyles = 'inline-flex items-center justify-center rounded-lg font-bold tracking-wide transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]';
   
   const variants = {
-    // Gold Gradient for Primary (Casino Vibe)
-    primary: 'bg-gold-gradient text-black shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 border border-amber-400/50',
-    secondary: 'bg-surfaceHighlight text-textMain border border-slate-700 hover:bg-slate-700 hover:border-slate-500',
-    outline: 'border border-amber-600/50 text-amber-500 hover:bg-amber-600/10 hover:border-amber-500',
-    ghost: 'text-textMuted hover:text-white hover:bg-white/5',
-    danger: 'bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20',
+    // Brand Green for Primary
+    primary: `${THEME.buttonPrimary} shadow-lg shadow-brand-green/20 hover:shadow-brand-green/40`,
+    secondary: `${THEME.buttonSecondary} border ${THEME.border}`,
+    outline: `border border-brand-green/50 ${THEME.accent} hover:bg-brand-green/10 hover:border-brand-green`,
+    ghost: `${THEME.textSecondary} hover:${THEME.textPrimary} hover:bg-white/5`,
+    danger: 'bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20',
   };
 
   const sizes = {

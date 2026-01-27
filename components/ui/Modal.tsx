@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { THEME } from '../../theme';
 
 interface ModalProps {
   isOpen: boolean;
@@ -33,13 +34,13 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
         }
       }}
     >
-      <div className="bg-surface border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] scale-in-95 animate-in duration-200">
-        <div className="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
-          <h3 className="text-lg font-semibold text-textMain">{title}</h3>
+      <div className={`${THEME.card} border ${THEME.border} rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] scale-in-95 animate-in duration-200`}>
+        <div className={`flex items-center justify-between p-4 border-b ${THEME.border} shrink-0`}>
+          <h3 className={`text-lg font-semibold ${THEME.textPrimary}`}>{title}</h3>
           <button 
             type="button"
             onClick={onClose} 
-            className="p-2 -mr-2 text-textMuted hover:text-textMain hover:bg-slate-800 rounded-full transition-colors"
+            className={`p-2 -mr-2 ${THEME.textSecondary} hover:${THEME.textPrimary} ${THEME.cardHover} rounded-full transition-colors`}
           >
             <X size={20} />
           </button>

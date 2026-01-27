@@ -9,6 +9,7 @@ import { User, Tournament, Club, Registration, Wallet } from '../../types';
 import { mockApi } from '../../services/mockApi';
 import { TournamentDetailModal } from './TournamentDetailModal';
 import { useAlert } from '../../contexts/AlertContext';
+import { THEME } from '../../theme';
 
 interface TournamentViewProps {
   user: User | null;
@@ -179,7 +180,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       const isEnded = currentTime > startTime + (8 * 60 * 60 * 1000);
 
       if (isEnded) {
-          return <Badge className="bg-slate-700 text-slate-400 border border-slate-600">已結束</Badge>;
+          return <Badge className={`${THEME.buttonSecondary} ${THEME.textSecondary} border ${THEME.border}`}>已結束</Badge>;
       }
       if (t.isLateRegEnded) {
           return <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">已截買</Badge>;
@@ -190,7 +191,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
   const renderTimeDisplay = (startTimeIso: string) => {
       const start = new Date(startTimeIso);
       const timeStr = start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-      return <div className="font-mono text-white font-bold text-sm">{timeStr}</div>;
+      return <div className={`font-mono ${THEME.textPrimary} font-bold text-sm`}>{timeStr}</div>;
   };
 
   // Grouping logic & Filtering
@@ -218,15 +219,15 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             <Card 
               key={t.id} 
               onClick={() => handleCardClick(t)}
-              className={`p-3 border-l-4 cursor-pointer hover:bg-surfaceHighlight/80 transition-all hover:shadow-lg ${isPaid ? 'border-l-emerald-500 bg-emerald-500/5' : 'border-l-yellow-500 bg-yellow-500/5'}`}
+              className={`p-3 border-l-4 cursor-pointer ${THEME.cardHover} transition-all hover:shadow-lg ${isPaid ? 'border-l-brand-green bg-brand-green/5' : 'border-l-yellow-500 bg-yellow-500/5'}`}
             >
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex flex-col gap-1">
-                        <h3 className="font-bold text-base text-white">{t.name}</h3>
+                        <h3 className={`font-bold text-base ${THEME.textPrimary}`}>{t.name}</h3>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {renderStateBadge(t)}
-                            <div className="h-3 w-px bg-slate-700 mx-0.5"></div>
-                            {t.type && <span className="text-[10px] text-slate-300 border border-slate-600 rounded px-1.5 py-[1px] bg-slate-800/50">{t.type}</span>}
+                            <div className={`h-3 w-px ${THEME.border.replace('border', 'bg')} mx-0.5`}></div>
+                            {t.type && <span className={`text-[10px] ${THEME.textPrimary} border ${THEME.border} rounded px-1.5 py-[1px] ${THEME.card}/50`}>{t.type}</span>}
                             <Badge variant={isPaid ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0 whitespace-nowrap">
                                     {isPaid ? '已付款' : '已預約'}
                             </Badge>
@@ -235,18 +236,18 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                     {renderTimeDisplay(t.startTime)}
                 </div>
 
-                <div className="w-full bg-slate-800/50 rounded-full h-1 mt-2 mb-2 overflow-hidden">
-                    <div className={`h-1 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-gold'} animate-pulse`} style={{width: '100%'}}></div>
+                <div className={`w-full ${THEME.card}/50 rounded-full h-1 mt-2 mb-2 overflow-hidden`}>
+                    <div className={`h-1 rounded-full ${isPaid ? 'bg-brand-green' : 'bg-yellow-500'} animate-pulse`} style={{width: '100%'}}></div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs mt-2">
                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 text-gold font-mono font-bold text-base">
+                        <div className={`flex items-center gap-1 ${THEME.accent} font-mono font-bold text-base`}>
                             <Coins size={14} />
                             <span>${totalPrice.toLocaleString()}</span>
                         </div>
-                        <span className="text-slate-600">|</span>
-                        <span className="text-textMuted">起始: {t.startingChips.toLocaleString()}</span>
+                        <span className={THEME.textSecondary}>|</span>
+                        <span className={THEME.textSecondary}>起始: {t.startingChips.toLocaleString()}</span>
                      </div>
                      
                      {!isPaid ? (
@@ -267,14 +268,14 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
         <Card 
           key={t.id} 
           onClick={() => handleCardClick(t)}
-          className={`p-3 border-l-2 ${status === 'CLOSED' ? 'border-l-slate-700 opacity-50' : 'border-l-slate-600'} cursor-pointer hover:bg-surfaceHighlight/80 transition-all hover:border-l-gold hover:shadow-lg`}
+          className={`p-3 border-l-2 ${status === 'CLOSED' ? `${THEME.border} opacity-50` : THEME.border} cursor-pointer ${THEME.cardHover} transition-all hover:border-l-brand-green hover:shadow-lg`}
         >
         <div className="flex justify-between items-center mb-2">
             <div className="flex flex-col gap-1">
-                <h3 className="font-bold text-base text-white font-display tracking-wide">{t.name}</h3>
+                <h3 className={`font-bold text-base ${THEME.textPrimary} font-display tracking-wide`}>{t.name}</h3>
                 <div className="flex items-center gap-1.5">
                     {renderStateBadge(t)}
-                    {t.type && <span className="text-[10px] text-slate-400 border border-slate-700 rounded px-1 w-fit">{t.type}</span>}
+                    {t.type && <span className={`text-[10px] ${THEME.textSecondary} border ${THEME.border} rounded px-1 w-fit`}>{t.type}</span>}
                 </div>
             </div>
             {renderTimeDisplay(t.startTime)}
@@ -282,14 +283,14 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
         <div className="flex items-center justify-between text-xs mt-2">
              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 text-gold font-mono font-bold text-base">
+                <div className={`flex items-center gap-1 ${THEME.accent} font-mono font-bold text-base`}>
                     <Coins size={14} />
                     <span>${totalPrice.toLocaleString()}</span>
                 </div>
-                <span className="text-slate-600">|</span>
-                <span className="text-textMuted">起始: {t.startingChips.toLocaleString()}</span>
+                <span className={THEME.textSecondary}>|</span>
+                <span className={THEME.textSecondary}>起始: {t.startingChips.toLocaleString()}</span>
              </div>
-             <div className="flex items-center gap-1 text-slate-400">
+             <div className={`flex items-center gap-1 ${THEME.textSecondary}`}>
                 <Users size={12} />
                 <span className={isOverCap ? 'text-danger font-bold' : ''}>
                     {t.reservedCount}/{t.maxCap}
@@ -301,10 +302,10 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
   };
 
   const renderStatusBadge = () => {
-      if (isGuest) return <Badge className="bg-slate-700 text-slate-400">訪客模式</Badge>;
+      if (isGuest) return <Badge className={`${THEME.buttonSecondary} ${THEME.textSecondary}`}>訪客模式</Badge>;
       
       if (!wallet) {
-          return <Badge className="bg-slate-700 text-slate-300">尚未加入</Badge>;
+          return <Badge className={`${THEME.buttonSecondary} ${THEME.textPrimary}`}>尚未加入</Badge>;
       }
       switch (wallet.status) {
           case 'active':
@@ -362,57 +363,57 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       </div>
 
       {/* 2. Full Banner Section (Aspect Ratio 2:1 for best mobile view) */}
-      <div className="w-full aspect-[2/1] relative bg-slate-900">
+      <div className={`w-full aspect-[2/1] relative ${THEME.card}`}>
          {club.bannerUrl ? (
              <img src={club.bannerUrl} className="w-full h-full object-cover" alt="Club Banner" />
          ) : (
-             <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-                 <span className="text-slate-700 text-4xl font-display font-bold opacity-20">{club.name}</span>
+             <div className={`w-full h-full bg-gradient-to-br from-brand-dark to-[#0f0f0f] flex items-center justify-center`}>
+                 <span className={`${THEME.textSecondary} text-4xl font-display font-bold opacity-20`}>{club.name}</span>
              </div>
          )}
          {/* Simple bottom gradient for transition */}
-         <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
+         <div className={`absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-brand-black to-transparent`} />
       </div>
 
       <div className="px-4 -mt-6 relative z-10 space-y-4">
         {/* 3. Club Header Info Block */}
         <div className="flex justify-between items-end">
              <div>
-                <h1 className="text-3xl font-bold text-white shadow-black drop-shadow-xl font-display tracking-tight">{club.name}</h1>
-                <div className="flex items-center gap-2 text-slate-300 text-sm mt-2">
-                    <MapPin size={14} className="text-gold" />
+                <h1 className={`text-3xl font-bold ${THEME.textPrimary} shadow-black drop-shadow-xl font-display tracking-tight`}>{club.name}</h1>
+                <div className={`flex items-center gap-2 ${THEME.textPrimary} text-sm mt-2`}>
+                    <MapPin size={14} className={THEME.accent} />
                     <span>台北市信義區</span>
                     
                     <button 
                         onClick={handleOpenMap}
-                        className="bg-slate-800/80 px-1.5 py-0.5 rounded text-xs text-slate-300 border border-slate-700 hover:text-white hover:border-slate-500 hover:bg-slate-700 transition-colors flex items-center gap-1"
+                        className={`${THEME.card}/80 px-1.5 py-0.5 rounded text-xs ${THEME.textPrimary} border ${THEME.border} hover:${THEME.textPrimary} hover:border-brand-green ${THEME.cardHover} transition-colors flex items-center gap-1`}
                     >
                         <Map size={10} />
                     </button>
 
                     {distanceText && (
-                        <span className="flex items-center gap-1 bg-slate-800/80 px-1.5 py-0.5 rounded text-xs text-slate-300 border border-slate-700">
+                        <span className={`flex items-center gap-1 ${THEME.card}/80 px-1.5 py-0.5 rounded text-xs ${THEME.textPrimary} border ${THEME.border}`}>
                             <Navigation size={10} /> {distanceText}
                         </span>
                     )}
                 </div>
              </div>
-             <button onClick={() => setShowClubInfo(true)} className="p-2 bg-surfaceHighlight/80 backdrop-blur rounded-full text-gold border border-gold/20 hover:bg-gold/10 shadow-lg">
+             <button onClick={() => setShowClubInfo(true)} className={`p-2 bg-[#262626]/80 backdrop-blur rounded-full ${THEME.accent} border border-brand-green/20 hover:bg-brand-green/10 shadow-lg`}>
                  <Info size={20} />
              </button>
          </div>
 
         {/* 4. Collapsible Club Description */}
         {club.description && (
-            <div className="bg-surfaceHighlight/50 p-3 rounded-xl border border-slate-800 relative">
-                <div className={`text-xs text-slate-300 leading-relaxed italic ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}>
+            <div className={`bg-[#262626]/50 p-3 rounded-xl border ${THEME.border} relative`}>
+                <div className={`text-xs ${THEME.textPrimary} leading-relaxed italic ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}>
                     "{club.description}"
                 </div>
                 {/* Expand Toggle */}
                 {club.description.length > 50 && (
                     <button 
                         onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                        className="flex items-center gap-1 text-[10px] text-gold mt-1 font-bold hover:underline"
+                        className={`flex items-center gap-1 text-[10px] ${THEME.accent} mt-1 font-bold hover:underline`}
                     >
                         {isDescriptionExpanded ? (
                             <><ChevronUp size={12} /> 收起介紹</>
@@ -428,33 +429,33 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             <div className="flex flex-col gap-3 mb-4 mt-6">
                  <div className="flex items-center justify-between">
                      {/* Increased Font Size here as requested */}
-                     <h2 className="text-2xl font-bold text-white font-display border-l-4 border-gold pl-3">今日賽程</h2>
-                     <p className="text-xs text-textMuted font-mono">{now.toLocaleDateString()}</p>
+                     <h2 className={`text-2xl font-bold ${THEME.textPrimary} font-display border-l-4 border-brand-green pl-3`}>今日賽程</h2>
+                     <p className={`text-xs ${THEME.textSecondary} font-mono`}>{now.toLocaleDateString()}</p>
                  </div>
 
                  {/* Buy-in Filter Chips */}
                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                     <button 
                         onClick={() => setBuyInFilter('All')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'All' ? 'bg-slate-700 text-white border-slate-600' : 'bg-transparent text-slate-500 border-slate-800'}`}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'All' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
                     >
                         全部
                     </button>
                     <button 
                         onClick={() => setBuyInFilter('Low')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'Low' ? 'bg-slate-700 text-white border-slate-600' : 'bg-transparent text-slate-500 border-slate-800'}`}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'Low' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
                     >
                         小額 (&lt;2k)
                     </button>
                     <button 
                         onClick={() => setBuyInFilter('Mid')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'Mid' ? 'bg-slate-700 text-white border-slate-600' : 'bg-transparent text-slate-500 border-slate-800'}`}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'Mid' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
                     >
                         中額 (2k-5k)
                     </button>
                     <button 
                         onClick={() => setBuyInFilter('High')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'High' ? 'bg-slate-700 text-white border-slate-600' : 'bg-transparent text-slate-500 border-slate-800'}`}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'High' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
                     >
                         高額 (&gt;5k)
                     </button>
@@ -462,18 +463,18 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             </div>
             
             {loading ? (
-                <div className="py-10 text-center text-textMuted">載入賽程中...</div>
+                <div className={`py-10 text-center ${THEME.textSecondary}`}>載入賽程中...</div>
             ) : (
                 <>
                     {myEntries.length > 0 && (
                         <div className="animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
-                            <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1">
+                            <div className={`text-xs font-bold ${THEME.accent} mb-2 flex items-center gap-1`}>
                                 <Ticket size={12} /> 我的報名
                             </div>
                             <div className="space-y-2">
                                 {myEntries.map(t => renderTournamentCard(t, myRegistrations.find(r => r.tournamentId === t.id)))}
                             </div>
-                            <div className="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent w-full my-4"></div>
+                            <div className={`h-px bg-gradient-to-r from-transparent via-brand-border to-transparent w-full my-4`}></div>
                         </div>
                     )}
 
@@ -481,7 +482,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                         {otherTournaments.length > 0 ? (
                             otherTournaments.map(t => renderTournamentCard(t))
                         ) : (
-                            <div className="text-center py-6 text-xs text-slate-500 italic">
+                            <div className={`text-center py-6 text-xs ${THEME.textSecondary} italic`}>
                                 沒有符合篩選條件的賽事
                             </div>
                         )}
@@ -502,17 +503,17 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       
       <Modal isOpen={showClubInfo} onClose={() => setShowClubInfo(false)} title="關於協會">
           <div className="space-y-4">
-               <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-                   <h3 className="font-bold text-white text-lg mb-1">{club.name}</h3>
+               <div className={`${THEME.card} p-4 rounded-lg border ${THEME.border}`}>
+                   <h3 className={`font-bold ${THEME.textPrimary} text-lg mb-1`}>{club.name}</h3>
                    {/* Removed Partner Tier as requested */}
                </div>
-               <div className="space-y-4 text-sm text-slate-300">
+               <div className={`space-y-4 text-sm ${THEME.textPrimary}`}>
                    <div>
                         <div className="flex justify-between items-start">
                              <p>📍 地址：台北市信義區松壽路 12 號 8 樓</p>
                              <button 
                                 onClick={handleOpenMap}
-                                className="bg-slate-700 text-gold p-1.5 rounded-lg border border-slate-600 hover:bg-slate-600 transition-colors"
+                                className={`${THEME.buttonSecondary} ${THEME.accent} p-1.5 rounded-lg border ${THEME.border} ${THEME.cardHover} transition-colors`}
                              >
                                  <Map size={16} />
                              </button>

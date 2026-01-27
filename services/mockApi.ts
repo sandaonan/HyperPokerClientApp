@@ -1,6 +1,9 @@
 
 import { User, Club, Wallet, Tournament, Registration, RegistrationStatus, MembershipStatus } from '../types';
 import { SEED_CLUBS, SEED_TOURNAMENTS } from '../constants';
+import { registerUser, loginUser, getUserById, updateUserProfile as updateSupabaseUser } from './supabaseAuth';
+import { isSupabaseAvailable } from '../lib/supabaseClient';
+import { joinClubInSupabase, getUserClubMemberships } from './supabaseClubMember';
 
 // Keys for LocalStorage
 const STORAGE_KEYS = {
@@ -58,19 +61,19 @@ class MockApiService {
         const seedWallets: Wallet[] = [
             {
                 userId: 'player1',
-                clubId: 'c-1', // Hyper Club (Original Mock: Pending Verification for demo purposes)
+                clubId: 'c-1', // Hyper Club (Mock: Fully Active for functional testing)
                 balance: 50000, 
                 points: 1200,
                 joinDate: new Date().toISOString(),
-                status: 'pending' // Force Pending to show Verification Alert Scenario
+                status: 'active' // 已加入
             },
             {
                 userId: 'player1',
-                clubId: 'c-2', // Ace High Club (Mock: Fully Active for functional testing)
+                clubId: 'c-2', // Ace High Club (Original Mock: Pending Verification for demo purposes)
                 balance: 100000, 
                 points: 500,
                 joinDate: new Date(Date.now() - 86400000 * 30).toISOString(),
-                status: 'active' // Active Status to test Tournament flows
+                status: 'pending' // 需驗證身份
             }
         ];
         
@@ -100,6 +103,19 @@ class MockApiService {
   // --- Auth ---
 
   async login(username: string, password: string): Promise<User> {
+    // Try Supabase first if available
+    if (isSupabaseAvailable()) {
+      try {
+        const user = await loginUser(username, password);
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, user.id);
+        return user;
+      } catch (error: any) {
+        // If Supabase fails, fall back to mock (for testing)
+        console.warn('Supabase login failed, falling back to mock:', error.message);
+      }
+    }
+
+    // Fallback to mock API
     await delay(500);
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
     const user = users.find(u => u.username === username && u.password === password);
@@ -111,6 +127,22 @@ class MockApiService {
   }
 
   async register(username: string, password: string, mobile: string = ''): Promise<User> {
+    // Try Supabase first if available
+    if (isSupabaseAvailable()) {
+      try {
+        const user = await registerUser(username, password, mobile);
+        
+        // Don't auto-join any club - user needs to apply manually
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, user.id);
+        return user;
+      } catch (error: any) {
+        // If Supabase fails, fall back to mock (for testing)
+        console.warn('Supabase registration failed, falling back to mock:', error.message);
+        throw error; // Re-throw to show error to user
+      }
+    }
+
+    // Fallback to mock API
     await delay(800);
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
     
@@ -154,6 +186,18 @@ class MockApiService {
   // --- User Profile Updates ---
 
   async updateUserProfile(user: User): Promise<User> {
+      // Try Supabase first if available
+      if (isSupabaseAvailable()) {
+        try {
+          const updatedUser = await updateSupabaseUser(user);
+          return updatedUser;
+        } catch (error: any) {
+          console.warn('Supabase update failed, falling back to mock:', error.message);
+          // Fall through to mock API
+        }
+      }
+
+      // Fallback to mock API
       await delay(400);
       const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
       const index = users.findIndex(u => u.id === user.id);
@@ -165,6 +209,37 @@ class MockApiService {
   }
 
   async updateUserSensitiveData(user: User): Promise<User> {
+      // Try Supabase first if available
+      if (isSupabaseAvailable()) {
+        try {
+          const updatedUser = await updateSupabaseUser({
+            ...user,
+            isProfileComplete: true
+          });
+
+          // 2. Reset ALL Wallets to 'pending' (still use localStorage for wallets)
+          const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+          let walletUpdated = false;
+          const updatedWallets = wallets.map(w => {
+              if (w.userId === user.id) {
+                  walletUpdated = true;
+                  return { ...w, status: 'pending' as MembershipStatus };
+              }
+              return w;
+          });
+
+          if (walletUpdated) {
+              localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(updatedWallets));
+          }
+
+          return updatedUser;
+        } catch (error: any) {
+          console.warn('Supabase update failed, falling back to mock:', error.message);
+          // Fall through to mock API
+        }
+      }
+
+      // Fallback to mock API
       await delay(800);
       const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
       const index = users.findIndex(u => u.id === user.id);
@@ -197,14 +272,131 @@ class MockApiService {
   // --- Wallet & Club Membership ---
 
   async getWallet(userId: string, clubId: string): Promise<Wallet | null> {
-    await delay(300);
-    const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-    const wallet = wallets.find(w => w.userId === userId && w.clubId === clubId);
-    return wallet || null;
+      // Check if this is a Supabase club (numeric ID) or mock club (c-1, c-2, c-3)
+      const isSupabaseClub = clubId === '1' || clubId === '2' || clubId === '3';
+      
+      // Try Supabase first if available and this is a Supabase club
+      if (isSupabaseAvailable() && isSupabaseClub) {
+        try {
+          const memberId = parseInt(userId);
+          const clubIdNum = parseInt(clubId);
+          
+          if (!isNaN(memberId) && !isNaN(clubIdNum)) {
+            const memberships = await getUserClubMemberships(memberId);
+            const membership = memberships.find(cm => cm.club_id === clubIdNum);
+            
+            if (membership) {
+              // Map member_status to Wallet status
+              let status: MembershipStatus = 'applying';
+              if (membership.member_status === 'activated') {
+                status = 'active';
+              } else if (membership.member_status === 'deactivated') {
+                status = 'banned';
+              } else if (membership.member_status === 'pending_approval') {
+                status = 'applying';
+              }
+              
+              // Map kyc_status
+              let kycStatus: 'verified' | 'unverified' | null = null;
+              if (membership.kyc_status === 'verified') {
+                kycStatus = 'verified';
+              } else if (membership.kyc_status === 'unverified') {
+                kycStatus = 'unverified';
+              }
+              
+              return {
+                userId: userId,
+                clubId: clubId,
+                balance: membership.balance || 0,
+                points: 0, // TODO: Add points field to club_member if needed
+                joinDate: membership.joined_date || new Date().toISOString(),
+                status: status,
+                kycStatus: kycStatus,
+              };
+            }
+            // If no membership found in Supabase for Supabase club, return null (not joined)
+            return null;
+          }
+        } catch (error: any) {
+          console.warn('Failed to get wallet from Supabase:', error.message);
+          // For Supabase clubs, if query fails, return null (don't fallback to localStorage)
+          return null;
+        }
+      }
+
+      // Fallback to mock API (only for mock clubs c-1, c-2, c-3)
+      await delay(300);
+      const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+      const wallet = wallets.find(w => w.userId === userId && w.clubId === clubId);
+      return wallet || null;
   }
 
   // New method to fetch all wallets for profile view
   async getAllWallets(userId: string): Promise<Wallet[]> {
+      // Try Supabase first if available
+      if (isSupabaseAvailable()) {
+        try {
+          const memberId = parseInt(userId);
+          if (!isNaN(memberId)) {
+            const memberships = await getUserClubMemberships(memberId);
+            console.log('[getAllWallets] Supabase memberships:', memberships);
+            
+            // Convert club_member to Wallet format
+            // Include ALL memberships regardless of status (activated, pending_approval, etc.)
+            const wallets: Wallet[] = memberships.map(cm => {
+              // Map member_status to Wallet status
+              let status: MembershipStatus = 'applying';
+              if (cm.member_status === 'activated') {
+                status = 'active';
+              } else if (cm.member_status === 'deactivated') {
+                status = 'banned';
+              } else if (cm.member_status === 'pending_approval') {
+                status = 'applying'; // Keep as 'applying' to show "申請審核中" badge
+              }
+              
+              // Map kyc_status
+              let kycStatus: 'verified' | 'unverified' | null = null;
+              if (cm.kyc_status === 'verified') {
+                kycStatus = 'verified';
+              } else if (cm.kyc_status === 'unverified') {
+                kycStatus = 'unverified';
+              }
+              
+              return {
+                userId: userId,
+                clubId: cm.club_id.toString(),
+                balance: cm.balance || 0,
+                points: 0, // TODO: Add points field to club_member if needed
+                joinDate: cm.joined_date || new Date().toISOString(),
+                status: status,
+                kycStatus: kycStatus,
+              };
+            });
+            
+            // Merge ALL localStorage wallets (including mock clubs c-1, c-2, c-3)
+            // This allows users to see mock associations for demo purposes
+            const localWallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+            const mockWallets = localWallets.filter(w => 
+              w.userId === userId && 
+              w.status !== 'banned'
+            );
+            
+            // Combine and deduplicate (Supabase clubs take priority over localStorage)
+            const allWallets = [...wallets, ...mockWallets];
+            const uniqueWallets = allWallets.filter((w, index, self) => 
+              index === self.findIndex(t => t.clubId === w.clubId)
+            );
+            
+            console.log('[getAllWallets] Final wallets:', uniqueWallets);
+            return uniqueWallets;
+          }
+        } catch (error: any) {
+          console.warn('Failed to get wallets from Supabase, falling back to mock:', error.message);
+          // Fall through to mock API
+        }
+      }
+
+      // Fallback to mock API
       await delay(300);
       const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
       return wallets.filter(w => w.userId === userId && w.status !== 'banned');
@@ -213,15 +405,61 @@ class MockApiService {
   async joinClub(userId: string, clubId: string): Promise<Wallet> {
       await delay(600);
       
-      // 1. Check Profile Completion
-      const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-      const user = users.find(u => u.id === userId);
+      // 1. Get user (try Supabase first, then fallback to localStorage)
+      let user: User | null = null;
+      if (isSupabaseAvailable()) {
+        try {
+          user = await getUserById(userId);
+        } catch (e) {
+          console.warn('Failed to get user from Supabase:', e);
+        }
+      }
+      
+      if (!user) {
+        const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+        user = users.find(u => u.id === userId) || null;
+      }
+
       if (!user) throw new Error("User not found");
 
       if (!user.isProfileComplete || !user.name || !user.nationalId || !user.birthday) {
           throw new Error("請先至「個人檔案」完成實名資料填寫與證件上傳，方可申請加入協會。");
       }
 
+      // 2. Try Supabase first if available
+      if (isSupabaseAvailable()) {
+        try {
+          const memberId = parseInt(userId);
+          const clubIdNum = parseInt(clubId);
+          
+          if (isNaN(memberId)) {
+            throw new Error('Invalid user ID');
+          }
+          if (isNaN(clubIdNum)) {
+            throw new Error('Invalid club ID');
+          }
+
+          // Create club_member record in Supabase
+          const newClubMember = await joinClubInSupabase(memberId, clubIdNum, user.nickname || null);
+
+          // Convert club_member to Wallet format for return
+          const newWallet: Wallet = {
+              userId,
+              clubId,
+              balance: newClubMember.balance || 0,
+              points: 0,
+              joinDate: newClubMember.joined_date || new Date().toISOString(),
+              status: 'applying' // pending_approval maps to 'applying'
+          };
+
+          return newWallet;
+        } catch (error: any) {
+          console.warn('Supabase join club failed, falling back to mock:', error.message);
+          // Fall through to mock API
+        }
+      }
+
+      // 3. Fallback to mock API
       const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
       
       if (wallets.find(w => w.userId === userId && w.clubId === clubId)) {
@@ -240,16 +478,20 @@ class MockApiService {
       wallets.push(newWallet);
       localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
 
-      // 3. Mock 8-second auto-approval
-      setTimeout(() => {
-          const currentWallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-          const targetIndex = currentWallets.findIndex(w => w.userId === userId && w.clubId === clubId);
-          if (targetIndex !== -1) {
-              currentWallets[targetIndex].status = 'active'; 
-              localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(currentWallets));
-              console.log(`[MockApi] Auto-approved user ${userId} for club ${clubId}`);
-          }
-      }, 8000);
+      // 4. Mock 8-second auto-approval (only for mock clubs, not Supabase clubs)
+      // Supabase clubs (id: '1', '2') require manual approval from backend
+      const isSupabaseClub = clubId === '1' || clubId === '2';
+      if (!isSupabaseClub) {
+        setTimeout(() => {
+            const currentWallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+            const targetIndex = currentWallets.findIndex(w => w.userId === userId && w.clubId === clubId);
+            if (targetIndex !== -1) {
+                currentWallets[targetIndex].status = 'active'; 
+                localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(currentWallets));
+                console.log(`[MockApi] Auto-approved user ${userId} for club ${clubId}`);
+            }
+        }, 8000);
+      }
 
       return newWallet;
   }

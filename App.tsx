@@ -9,6 +9,7 @@ import { StatsView } from './components/views/StatsView';
 import { ViewState, User, Club } from './types';
 import { mockApi } from './services/mockApi';
 import { AlertProvider } from './contexts/AlertContext';
+import { THEME } from './theme';
 
 const GuestOverlay: React.FC<{ onLoginClick: () => void }> = ({ onLoginClick }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 pointer-events-auto">
@@ -138,18 +139,18 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-textMain font-sans selection:bg-primary/30">
+    <div className="min-h-screen bg-brand-black text-brand-white font-sans selection:bg-brand-green/30">
       <main className={`mx-auto max-w-md min-h-screen relative ${currentView !== 'login' ? 'p-4' : ''}`}>
         {renderView()}
       </main>
 
       {/* Bottom Navigation */}
       {currentView !== 'login' && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-md border-t border-slate-800 pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-brand-dark/90 backdrop-blur-md border-t border-brand-border pb-safe">
           <div className="max-w-md mx-auto flex justify-around items-center h-16 px-6">
             <button 
               onClick={handleClubNavClick}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'home' || currentView === 'tournaments' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'home' || currentView === 'tournaments' ? THEME.accent : `${THEME.textSecondary} hover:${THEME.textPrimary}`}`}
             >
               <Home size={22} />
               <span className="text-[10px] font-medium">協會</span>
@@ -157,7 +158,7 @@ const AppContent: React.FC = () => {
             
             <button 
               onClick={() => navigateTo('my-games')}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'my-games' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'my-games' ? THEME.accent : `${THEME.textSecondary} hover:${THEME.textPrimary}`}`}
             >
               <Ticket size={22} />
               <span className="text-[10px] font-medium">我的賽事</span>
@@ -165,7 +166,7 @@ const AppContent: React.FC = () => {
 
             <button 
               onClick={() => navigateTo('profile')}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'profile' ? 'text-primary' : 'text-textMuted hover:text-slate-300'}`}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === 'profile' ? THEME.accent : `${THEME.textSecondary} hover:${THEME.textPrimary}`}`}
             >
               {isGuest ? <LogIn size={22} /> : <UserIcon size={22} />}
               <span className="text-[10px] font-medium">{isGuest ? '登入' : '檔案'}</span>

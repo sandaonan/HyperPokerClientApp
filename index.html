@@ -16,20 +16,29 @@
         theme: {
           extend: {
             colors: {
-              background: '#0a0a0a', // Almost black
-              surface: '#171717', // Neutral 900
-              surfaceHighlight: '#262626', // Neutral 800
+              // Brand Colors
+              'brand-black': '#000000',
+              'brand-dark': '#171717',
+              'brand-border': '#333333',
+              'brand-white': '#FFFFFF',
+              'brand-gray': '#999999',
+              'brand-green': '#06C167',
               
-              // Gold / Casino Theme
-              primary: '#d97706', // amber-600
-              primaryHover: '#b45309', // amber-700
-              gold: '#f59e0b', // amber-500
-              goldLight: '#fbbf24', // amber-400
+              // Legacy colors (for backward compatibility)
+              background: '#000000', // brand-black
+              surface: '#171717', // brand-dark
+              surfaceHighlight: '#262626',
               
-              danger: '#ef4444', // red-500
-              warning: '#eab308', // yellow-500
-              textMain: '#fafafa', // neutral-50
-              textMuted: '#a3a3a3', // neutral-400
+              // Gold / Casino Theme (kept for some components)
+              primary: '#06C167', // brand-green
+              primaryHover: '#05a357',
+              gold: '#f59e0b',
+              goldLight: '#fbbf24',
+              
+              danger: '#ef4444',
+              warning: '#eab308',
+              textMain: '#FFFFFF', // brand-white
+              textMuted: '#999999', // brand-gray
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
@@ -47,8 +56,8 @@
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
       
       body {
-        background-color: #0a0a0a;
-        color: #fafafa;
+        background-color: #000000; /* brand-black */
+        color: #FFFFFF; /* brand-white */
         font-family: 'Inter', sans-serif;
         overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
       }
@@ -66,23 +75,23 @@
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #171717; 
+        background: #171717; /* brand-dark */
       }
       ::-webkit-scrollbar-thumb {
-        background: #404040; 
+        background: #333333; /* brand-border */
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #525252; 
+        background: #444444; 
       }
       
       /* Leaflet Dark Mode Overrides */
       .leaflet-container {
-          background: #0a0a0a !important;
+          background: #000000 !important; /* brand-black */
       }
       .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-          background: #171717 !important;
-          color: white !important;
+          background: #171717 !important; /* brand-dark */
+          color: #FFFFFF !important; /* brand-white */
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
       }
       .leaflet-popup-close-button {

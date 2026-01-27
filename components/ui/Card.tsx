@@ -1,4 +1,5 @@
 import React from 'react';
+import { THEME } from '../../theme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -10,7 +11,7 @@ export const Card: React.FC<CardProps> = ({ children, className = '', onClick })
   return (
     <div 
       onClick={onClick}
-      className={`bg-surfaceHighlight rounded-xl border border-slate-700/50 p-4 ${className} ${onClick ? 'cursor-pointer hover:border-slate-600 transition-colors' : ''}`}
+      className={`${THEME.card} rounded-xl border ${THEME.border} p-4 ${className} ${onClick ? `cursor-pointer ${THEME.cardHover} transition-colors` : ''}`}
     >
       {children}
     </div>

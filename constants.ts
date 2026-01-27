@@ -32,6 +32,35 @@ export const SEED_CLUBS: Club[] = [
   {
     id: 'c-3',
     name: '皇家同花順競技場',
+  },
+  // Supabase Test Clubs (for real database testing, no auto-approval)
+  {
+    id: '1',
+    name: 'Hyper 協會 (Supabase)',
+    description: '台北市最頂級的德州撲克競技協會，致力於提供國際級的賽事體驗。我們擁有最專業的發牌團隊、最舒適的賽事環境以及最公正的賽事規則。\n\n每日舉辦多場高額保證賽事，並定期舉辦年度大賽。場館內設有豪華休息區、專業餐飲服務，讓您在激烈的腦力激盪後能獲得充分的放鬆。無論您是職業選手還是休閒玩家，Hyper 協會都是您展現牌技的最佳舞台。歡迎隨時蒞臨挑戰！\n\n(此協會用於 Supabase 測試，需後台審核)',
+    bannerUrl: 'https://placehold.co/1000x400/450a0a/fbbf24?text=HYPER+POKER+CLUB+SUPABASE&font=playfair-display', 
+    tier: 'Platinum',
+    localId: 'Hyper-888-SB',
+    currency: 'USD',
+    feedbackUrl: 'https://forms.gle/placeholder_feedback_form',
+    latitude: 25.033964,
+    longitude: 121.564472,
+  },
+  {
+    id: '2',
+    name: 'Ace High 台北 (Supabase)',
+    description: 'Ace High 專注於推廣健康撲克運動，打造一個新手友善且充滿活力的競技社群。我們特別設立了新手教學桌，由專業教練手把手指導，讓您快速掌握德州撲克的精髓。\n\n每週五舉辦的「狂歡夜」更是吸引無數玩家共襄盛舉，現場氣氛熱烈，是結交牌友的最佳場所。\n\n(此協會用於 Supabase 測試，需後台審核)',
+    bannerUrl: 'https://images.unsplash.com/photo-1544552866-d3ed42536cfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    tier: 'Emerald',
+    localId: 'AH-007-SB',
+    currency: 'USD',
+    feedbackUrl: 'https://forms.gle/placeholder_feedback_form',
+    latitude: 25.042250,
+    longitude: 121.551300,
+  },
+  {
+    id: '3',
+    name: '皇家同花順競技場 (Supabase)',
     description: '全台最大規模賽事場地，擁有超過 30 張專業比賽桌，可同時容納數百名玩家同場競技。我們定期承辦大型國際巡迴賽事，是台灣撲克通往世界的橋樑。\n\n場館位於交通便利的市中心，周邊機能完善。加入我們，體驗最刺激的大型錦標賽氛圍！',
     bannerUrl: 'https://images.unsplash.com/photo-1605870445919-838d190e8e1b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
     tier: 'Diamond',
@@ -2338,7 +2367,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   // --- CLUB 1: HYPER (Scenarios) ---
   {
     id: 't-1',
-    clubId: 'c-1',
+    clubId: '1',
     name: '每日深籌賽',
     description: '我們的招牌每日賽事。(正常開放情境)',
     type: '錦標賽',
@@ -2356,7 +2385,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-demo-1',
-    clubId: 'c-1',
+    clubId: '1',
     name: '新秀練習賽',
     description: '專為新手設計，體驗實戰氛圍。(測試: 可預約 Demo)',
     type: '衛星賽',
@@ -2373,7 +2402,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-2',
-    clubId: 'c-1',
+    clubId: '1',
     name: '豪客賽',
     description: '專為高額玩家打造。(測試超額紅色顯示)',
     type: '錦標賽',
@@ -2391,7 +2420,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-3',
-    clubId: 'c-1',
+    clubId: '1',
     name: '快速獵人賽',
     description: '快節奏賽事。(測試截止報名情境)',
     type: '賞金賽',
@@ -2408,7 +2437,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-4',
-    clubId: 'c-1',
+    clubId: '1',
     name: '昨日回顧賽',
     description: '昨天的比賽。(測試歷史回顧)',
     type: '限時錦標賽',
@@ -2427,7 +2456,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   // --- CLUB 2: ACE HIGH (Fully Active Scenarios) ---
   {
     id: 't-2-1',
-    clubId: 'c-2',
+    clubId: '2',
     name: '週五狂歡夜',
     description: 'Ace High 最受歡迎的賽事，適合所有玩家。(測試: 正常預約/報名)',
     type: '錦標賽',
@@ -2445,7 +2474,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-demo-2',
-    clubId: 'c-2',
+    clubId: '2',
     name: '平日積分賽',
     description: '平日晚間固定賽事，累積積分換大獎。(測試: 可預約 Demo)',
     type: '錦標賽',
@@ -2462,7 +2491,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-2-2',
-    clubId: 'c-2',
+    clubId: '2',
     name: '菁英單挑賽',
     description: '極限單挑，名額有限。(測試: 候補名單功能)',
     type: '錦標賽',
@@ -2480,7 +2509,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-2-3',
-    clubId: 'c-2',
+    clubId: '2',
     name: '下午茶休閒賽',
     description: '輕鬆打，累積積分。(測試: 已截止報名)',
     type: '衛星賽',
@@ -2497,7 +2526,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
   },
   {
     id: 't-2-4',
-    clubId: 'c-2',
+    clubId: '2',
     name: '上週冠軍賽',
     description: '回顧上週精彩賽事。(測試: 歷史賽事)',
     type: '錦標賽',
