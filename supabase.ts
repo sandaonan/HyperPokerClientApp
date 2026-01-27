@@ -277,7 +277,7 @@ export type Database = {
           full_name: string
           gender: string | null
           id: number
-          id_number: string
+          id_number: string | null
           id_url: string | null
           line_account: string | null
           mobile_phone: string | null
@@ -295,7 +295,7 @@ export type Database = {
           full_name: string
           gender?: string | null
           id?: number
-          id_number: string
+          id_number?: string | null
           id_url?: string | null
           line_account?: string | null
           mobile_phone?: string | null
@@ -313,7 +313,7 @@ export type Database = {
           full_name?: string
           gender?: string | null
           id?: number
-          id_number?: string
+          id_number?: string | null
           id_url?: string | null
           line_account?: string | null
           mobile_phone?: string | null

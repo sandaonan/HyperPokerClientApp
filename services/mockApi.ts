@@ -273,15 +273,17 @@ class MockApiService {
 
   async getWallet(userId: string, clubId: string): Promise<Wallet | null> {
       // Check if this is a Supabase club (numeric ID) or mock club (c-1, c-2, c-3)
-      const isSupabaseClub = clubId === '1' || clubId === '2' || clubId === '3';
+      // Mock clubs have format 'c-X', Supabase clubs are numeric strings
+      const isMockClub = clubId.startsWith('c-');
+      const clubIdNum = parseInt(clubId);
+      const isSupabaseClub = !isMockClub && !isNaN(clubIdNum);
       
       // Try Supabase first if available and this is a Supabase club
       if (isSupabaseAvailable() && isSupabaseClub) {
         try {
           const memberId = parseInt(userId);
-          const clubIdNum = parseInt(clubId);
           
-          if (!isNaN(memberId) && !isNaN(clubIdNum)) {
+          if (!isNaN(memberId)) {
             const memberships = await getUserClubMemberships(memberId);
             const membership = memberships.find(cm => cm.club_id === clubIdNum);
             
@@ -571,16 +573,31 @@ class MockApiService {
 
     if (tournament.isLateRegEnded) throw new Error("此賽事已截止報名，無法預約。");
 
-    const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-    const walletIndex = wallets.findIndex(w => w.userId === userId && w.clubId === tournament.clubId);
+    // Get wallet from Supabase (if available) or localStorage
+    const userWallet = await this.getWallet(userId, tournament.clubId);
 
     // Check Membership
-    if (walletIndex === -1) throw new Error("您尚未加入該協會");
+    if (!userWallet) throw new Error("您尚未加入該協會");
     
-    const userWallet = wallets[walletIndex];
-    if (userWallet.status === 'applying') throw new Error("您的入會申請正在審核中，請稍候。");
-    if (userWallet.status === 'pending') throw new Error("您的身份驗證狀態為「待驗證」，請至櫃檯完成真人核對後方可報名。");
-    if (userWallet.status === 'banned') throw new Error("您已被該協會停權。");
+    // Check member_status: pending_approval means cannot register
+    if (userWallet.status === 'applying') {
+      throw new Error("您的入會申請正在審核中，請稍候。");
+    }
+    
+    // Check member_status: deactivated means banned
+    if (userWallet.status === 'banned') {
+      throw new Error("您已被該協會停權。");
+    }
+    
+    // Check kyc_status: if activated but kyc_status is unverified, cannot register
+    if (userWallet.status === 'active' && userWallet.kycStatus === 'unverified') {
+      throw new Error("請至櫃檯完成身份驗證後方可報名。");
+    }
+    
+    // Only allow registration if status is 'active' (member_status = activated)
+    if (userWallet.status !== 'active') {
+      throw new Error("您的會員狀態不符合報名條件。");
+    }
 
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     
@@ -592,11 +609,21 @@ class MockApiService {
         
         if (existing.status === 'reserved' && type === 'buy-in') {
              const totalCost = tournament.buyIn + tournament.fee;
-             if (wallets[walletIndex].balance < totalCost) {
-                 throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${wallets[walletIndex]?.balance.toLocaleString() || 0}`);
+             if (userWallet.balance < totalCost) {
+                 throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${userWallet.balance.toLocaleString() || 0}`);
              }
-             wallets[walletIndex].balance -= totalCost;
-             localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
+             
+             // Update balance (for mock clubs, update localStorage; for Supabase clubs, would need API call)
+             const isMockClub = tournament.clubId.startsWith('c-');
+             if (isMockClub) {
+               const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+               const walletIndex = wallets.findIndex(w => w.userId === userId && w.clubId === tournament.clubId);
+               if (walletIndex !== -1) {
+                 wallets[walletIndex].balance -= totalCost;
+                 localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
+               }
+             }
+             // TODO: For Supabase clubs, update balance via API call
 
              existing.status = 'paid';
              localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(registrations));
@@ -609,11 +636,21 @@ class MockApiService {
     // Waitlist logic allows over cap
     if (type === 'buy-in') {
        const totalCost = tournament.buyIn + tournament.fee;
-       if (wallets[walletIndex].balance < totalCost) {
-           throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${wallets[walletIndex]?.balance.toLocaleString() || 0}`);
+       if (userWallet.balance < totalCost) {
+           throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${userWallet.balance.toLocaleString() || 0}`);
        }
-       wallets[walletIndex].balance -= totalCost;
-       localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
+       
+       // Update balance (for mock clubs, update localStorage; for Supabase clubs, would need API call)
+       const isMockClub = tournament.clubId.startsWith('c-');
+       if (isMockClub) {
+         const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+         const walletIndex = wallets.findIndex(w => w.userId === userId && w.clubId === tournament.clubId);
+         if (walletIndex !== -1) {
+           wallets[walletIndex].balance -= totalCost;
+           localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
+         }
+       }
+       // TODO: For Supabase clubs, update balance via API call
     }
 
     const newReg: Registration = {
