@@ -2380,6 +2380,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     maxCap: 60,
     isLateRegEnded: false,
     lateRegLevel: 6,
+    maxRebuy: 3, // Mock: Can re-buy 3 times
     structure: MOCK_STRUCTURE,
     clockUrl: 'https://www.youtube.com/watch?v=placeholder',
   },
@@ -2405,7 +2406,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     clubId: '1',
     name: '豪客賽',
     description: '專為高額玩家打造。(測試超額紅色顯示)',
-    type: '錦標賽',
+    type: '豪克系列賽',
     promotionNote: `包含自助餐點與無限暢飲。\n${COMMON_RULES}`,
     buyIn: 10000,
     fee: 1000,
@@ -2415,6 +2416,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     maxCap: 20,
     isLateRegEnded: false,
     lateRegLevel: 8,
+    maxRebuy: 5, // Mock: Can re-buy 5 times
     structure: MOCK_STRUCTURE,
     clockUrl: 'https://www.youtube.com/watch?v=placeholder',
   },
@@ -2469,6 +2471,7 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     maxCap: 50,
     isLateRegEnded: false,
     lateRegLevel: 6,
+    maxRebuy: 2, // Mock: Can re-buy 2 times
     structure: MOCK_STRUCTURE,
     clockUrl: 'https://www.youtube.com/watch?v=placeholder',
   },
@@ -2541,6 +2544,118 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     lateRegLevel: 8,
     structure: MOCK_STRUCTURE,
   },
+
+  // --- MOCK CLUBS: c-1, c-2, c-3 (for demo purposes) ---
+  // These tournaments are for mock clubs that don't have Supabase data
+  {
+    id: 't-mock-1',
+    clubId: 'c-1',
+    name: '每日深籌賽',
+    description: '我們的招牌每日賽事。(正常開放情境)',
+    type: '錦標賽',
+    promotionNote: `🔥 早鳥優惠：開賽前完成報名，加贈 2,000 籌碼！\n${COMMON_RULES}`,
+    buyIn: 3000,
+    fee: 400,
+    startingChips: 20000,
+    startTime: new Date(today.setHours(today.getHours() + 1)).toISOString(), 
+    reservedCount: 15,
+    maxCap: 60,
+    isLateRegEnded: false,
+    lateRegLevel: 6,
+    maxRebuy: 3,
+    structure: MOCK_STRUCTURE,
+    clockUrl: 'https://www.youtube.com/watch?v=placeholder',
+  },
+  {
+    id: 't-mock-2',
+    clubId: 'c-1',
+    name: '新秀練習賽',
+    description: '專為新手設計，體驗實戰氛圍。(測試: 可預約 Demo)',
+    type: '衛星賽',
+    promotionNote: `前三名可獲得週賽門票一張。\n${COMMON_RULES}`,
+    buyIn: 1000,
+    fee: 100,
+    startingChips: 10000,
+    startTime: new Date(new Date().setHours(new Date().getHours() + 2)).toISOString(),
+    reservedCount: 5,
+    maxCap: 40,
+    isLateRegEnded: false,
+    lateRegLevel: 4,
+    structure: MOCK_STRUCTURE,
+  },
+  {
+    id: 't-mock-3',
+    clubId: 'c-1',
+    name: '豪客賽',
+    description: '專為高額玩家打造。(測試超額紅色顯示)',
+    type: '豪克系列賽',
+    promotionNote: `包含自助餐點與無限暢飲。\n${COMMON_RULES}`,
+    buyIn: 10000,
+    fee: 1000,
+    startingChips: 50000,
+    startTime: new Date(new Date().setHours(new Date().getHours() + 4)).toISOString(),
+    reservedCount: 22,
+    maxCap: 20,
+    isLateRegEnded: false,
+    lateRegLevel: 8,
+    maxRebuy: 5,
+    structure: MOCK_STRUCTURE,
+    clockUrl: 'https://www.youtube.com/watch?v=placeholder',
+  },
+  {
+    id: 't-mock-4',
+    clubId: 'c-2',
+    name: '週五狂歡夜',
+    description: 'Ace High 最受歡迎的賽事，適合所有玩家。(測試: 正常預約/報名)',
+    type: '錦標賽',
+    promotionNote: `現場提供免費啤酒。\n${COMMON_RULES}`,
+    buyIn: 2000,
+    fee: 200,
+    startingChips: 15000,
+    startTime: new Date(new Date().setHours(new Date().getHours() + 2)).toISOString(), 
+    reservedCount: 10,
+    maxCap: 50,
+    isLateRegEnded: false,
+    lateRegLevel: 6,
+    maxRebuy: 2,
+    structure: MOCK_STRUCTURE,
+    clockUrl: 'https://www.youtube.com/watch?v=placeholder',
+  },
+  {
+    id: 't-mock-5',
+    clubId: 'c-2',
+    name: '平日積分賽',
+    description: '平日晚間固定賽事，累積積分換大獎。(測試: 可預約 Demo)',
+    type: '錦標賽',
+    promotionNote: COMMON_RULES,
+    buyIn: 1500,
+    fee: 200,
+    startingChips: 20000,
+    startTime: new Date(new Date().setHours(new Date().getHours() + 3, 30)).toISOString(), 
+    reservedCount: 8,
+    maxCap: 40,
+    isLateRegEnded: false,
+    lateRegLevel: 6,
+    structure: MOCK_STRUCTURE,
+  },
+  {
+    id: 't-mock-6',
+    clubId: 'c-3',
+    name: '皇家錦標賽',
+    description: '皇家同花順競技場的招牌賽事。',
+    type: '錦標賽',
+    promotionNote: COMMON_RULES,
+    buyIn: 2500,
+    fee: 250,
+    startingChips: 18000,
+    startTime: new Date(new Date().setHours(new Date().getHours() + 3)).toISOString(),
+    reservedCount: 12,
+    maxCap: 45,
+    isLateRegEnded: false,
+    lateRegLevel: 5,
+    maxRebuy: 2,
+    structure: MOCK_STRUCTURE,
+  },
 ];
 
 export const GAME_HISTORY: GameRecord[] = [
@@ -2553,9 +2668,10 @@ export const GAME_HISTORY: GameRecord[] = [
     buyIn: 3000,
     entryCount: 1,
     seatNumber: 5,
-    profit: 5400,
+    profit: 5400, // No negative values
     type: '錦標賽',
-    points: 50
+    points: 6, // Regular points
+    activityPoints: 44 // Activity points (total 50 - 6 = 44)
   },
   {
     id: 'g-2',
@@ -2564,11 +2680,12 @@ export const GAME_HISTORY: GameRecord[] = [
     gameName: '豪客賽',
     clubName: 'Hyper 協會',
     buyIn: 10000,
-    entryCount: 2, // Re-entered once
+    entryCount: 2, // Re-entered once (2 buy-ins)
     seatNumber: 8,
-    profit: -20000, // Total loss (10000 * 2)
+    profit: 0, // No prize, profit = 0 (not negative)
     type: '錦標賽',
-    points: 10
+    points: 6,
+    activityPoints: 4 // Activity points (total 10 - 6 = 4)
   },
   {
     id: 'g-3',
@@ -2581,7 +2698,8 @@ export const GAME_HISTORY: GameRecord[] = [
     seatNumber: 2,
     profit: 3200,
     type: '賞金賽',
-    points: 35
+    points: 6,
+    activityPoints: 29 // Activity points (total 35 - 6 = 29)
   },
   {
     id: 'g-4',
@@ -2594,6 +2712,7 @@ export const GAME_HISTORY: GameRecord[] = [
     seatNumber: 6,
     profit: 12500,
     type: '限時錦標賽',
-    points: 120
+    points: 6,
+    activityPoints: 114 // Activity points (total 120 - 6 = 114)
   }
 ];

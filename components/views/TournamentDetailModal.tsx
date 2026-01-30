@@ -14,7 +14,7 @@ interface TournamentDetailModalProps {
   userWallet: Wallet | null;
   registration?: Registration;
   onClose: () => void;
-  onRegister: (type: 'reserve' | 'buy-in') => void;
+  onRegister: (type: 'reserve') => void; // Only reserve, no buy-in
   onCancel: () => void;
 }
 
@@ -60,8 +60,8 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const isEnded = startTimeObj.getTime() < new Date().getTime();
   const isClosed = tournament.isLateRegEnded; // Specifically for registration logic
 
-  // Calculate Total Duration
-  const totalDurationMinutes = tournament.structure.reduce((acc, curr) => acc + curr.duration, 0);
+  // Calculate Total Duration - use durationMinutes if available, otherwise calculate from structure
+  const totalDurationMinutes = tournament.durationMinutes || tournament.structure.reduce((acc, curr) => acc + curr.duration, 0);
   const durationHours = Math.floor(totalDurationMinutes / 60);
   const durationMinsRemainder = totalDurationMinutes % 60;
   const durationStr = `${durationHours}hr${durationMinsRemainder > 0 ? ` ${durationMinsRemainder}m` : ''}`;
@@ -76,27 +76,6 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   if (isEnded && paidPlayers.length === 0 && registration && registration.status === 'paid') {
       paidPlayers = [registration];
   }
-
-  const handleBuyInClick = async (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      if (isFull) {
-          await showAlert("候補中", "目前賽事名額已滿，請等待名額釋出後再進行報名。");
-          return;
-      }
-
-      if (!canAfford) return;
-      
-      const confirmed = await showConfirm(
-          "確認報名",
-          `您即將使用儲值金餘額報名。\n將扣除: $${totalCost.toLocaleString()}\n\n注意：使用線上金流報名後，如需取消，報名費 (Fee) 恕不退還。\n\n是否確定報名？`
-      );
-
-      if (confirmed) {
-          onRegister('buy-in');
-      }
-  };
 
   const handleReserveClick = async () => {
       // If full, warn about waitlist
@@ -121,8 +100,6 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const promoLines = tournament.promotionNote ? tournament.promotionNote.split('\n') : [];
   const displayLines = isPromoExpanded ? promoLines : promoLines.slice(0, 3);
   const hasMoreLines = promoLines.length > 3;
-
-  let accumulatedMinutes = 0;
   
   return (
     <Modal isOpen={!!tournament} onClose={onClose} title="賽事詳情">
@@ -152,13 +129,18 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
 
         {/* 3-Column Info Grid */}
         <div className="grid grid-cols-3 gap-2">
-          {/* Col 1: Price */}
-          <div className={`bg-[#262626] p-2.5 rounded-lg border ${THEME.border} flex flex-col items-center justify-center text-center`}>
+          {/* Col 1: Price with Re-buy */}
+          <div className={`bg-[#262626] p-2.5 rounded-lg border ${THEME.border} flex flex-col items-center justify-center text-center relative`}>
              <div className={`flex items-center gap-1.5 ${THEME.textSecondary} text-[10px] mb-1 uppercase tracking-wider`}>
                 <WalletIcon size={12} className={THEME.accent} />
                 參賽費用
              </div>
              <div className={`${THEME.accent} font-mono text-base font-bold`}>${totalCost.toLocaleString()}</div>
+             {tournament.maxRebuy !== undefined && tournament.maxRebuy > 0 && (
+                <div className={`absolute -bottom-1 -right-1 text-[8px] ${THEME.textSecondary} bg-[#1a1a1a] px-1.5 py-0.5 rounded border ${THEME.border}/50`}>
+                    Re-buy: {tournament.maxRebuy}次
+                </div>
+             )}
           </div>
           
           {/* Col 2: Stack */}
@@ -315,34 +297,18 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     <div className="space-y-3">
                         {registration.status === 'reserved' ? (
                             <>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Button 
-                                        type="button" fullWidth variant="outline" 
-                                        onClick={handleCancelClick} 
-                                        className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
-                                    >
-                                        取消預約
-                                    </Button>
-                                    <Button 
-                                        type="button" 
-                                        fullWidth 
-                                        variant="primary" 
-                                        onClick={handleBuyInClick}
-                                        disabled={!canAfford || isFull}
-                                        className={(!canAfford || isFull) ? 'opacity-50' : ''}
-                                    >
-                                        {isFull ? "候補中 (等待名額)" : "確認報名"}
-                                    </Button>
-                                </div>
-                                {/* Weakened Wallet Display */}
-                                <div className="flex justify-between items-center px-1">
-                                     <span className={`text-xs ${THEME.textSecondary}`}>儲值金餘額</span>
-                                     <div className="flex items-center gap-2">
-                                        <span className={`font-mono font-bold text-xs ${canAfford ? THEME.textPrimary : 'text-red-500'}`}>
-                                            ${currentBalance.toLocaleString()}
-                                        </span>
-                                        {!canAfford && <AlertTriangle size={12} className="text-red-500" />}
-                                     </div>
+                                <Button 
+                                    type="button" 
+                                    fullWidth 
+                                    variant="outline" 
+                                    onClick={handleCancelClick} 
+                                    className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
+                                >
+                                    取消預約
+                                </Button>
+                                <div className={`text-center text-xs ${THEME.textSecondary} py-2 px-2`}>
+                                    <p className={`${THEME.textPrimary} mb-0.5`}>已預約席位</p>
+                                    <p className="text-[10px] opacity-75">請於開賽前至櫃檯報到繳費</p>
                                 </div>
                             </>
                         ) : (
@@ -403,31 +369,58 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     </tr>
                  </thead>
                  <tbody className={`divide-y ${THEME.border.replace('border', 'divide')} ${THEME.card}/50`}>
-                    {tournament.structure?.map((level) => {
-                       accumulatedMinutes += level.duration;
-                       const isCutoff = level.level === tournament.lateRegLevel;
+                    {(() => {
+                       let accumulatedMinutes = 0; // Track accumulated game time (excluding breaks)
+                       let totalTime = 0; // Track total time including breaks for cutoff calculation
                        
-                       const cutoffTime = new Date(startTimeObj.getTime() + (accumulatedMinutes * 60000));
-                       const cutoffStr = cutoffTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                       return tournament.structure?.map((level) => {
+                          // Handle break entries differently - full-width separator row like cut-off
+                          if (level.isBreak) {
+                             const breakDuration = level.duration || level.breakDuration || 0;
+                             totalTime += breakDuration; // Break time counts for cutoff calculation
+                             const breakTime = new Date(startTimeObj.getTime() + (totalTime * 60000));
+                             const breakTimeStr = breakTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                             
+                             return (
+                                 <React.Fragment key={`break-${level.level}`}>
+                                     {/* Break separator row - full width like cut-off but different color, more subtle */}
+                                     <tr className="bg-blue-500/5 border-t border-b border-blue-500/20">
+                                        <td colSpan={4} className="p-2 text-center text-xs text-blue-400/80 font-medium">
+                                            ⏸️ 休息時間 (Break) - {breakTimeStr} ({breakDuration}分鐘)
+                                        </td>
+                                     </tr>
+                                 </React.Fragment>
+                             );
+                          }
+                          
+                          // Regular blind level - accumulate both game time and total time
+                          accumulatedMinutes += level.duration;
+                          totalTime += level.duration;
+                          const isCutoff = level.level === tournament.lateRegLevel;
+                          
+                          // Use totalTime (including breaks) for cutoff time calculation
+                          const cutoffTime = new Date(startTimeObj.getTime() + (totalTime * 60000));
+                          const cutoffStr = cutoffTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-                       return (
-                           <React.Fragment key={level.level}>
-                               <tr className={isCutoff ? 'bg-red-900/10' : ''}>
-                                  <td className={`p-3 ${THEME.textSecondary} text-center`}>{level.level}</td>
-                                  <td className={`p-3 ${THEME.textPrimary} font-mono`}>{level.smallBlind.toLocaleString()}/{level.bigBlind.toLocaleString()}</td>
-                                  <td className={`p-3 ${THEME.textPrimary} font-mono`}>{level.ante > 0 ? level.ante : '-'}</td>
-                                  <td className={`p-3 ${THEME.textPrimary} text-right`}>{level.duration}m</td>
-                               </tr>
-                               {isCutoff && (
-                                   <tr className="bg-red-500/10 border-t border-b border-red-500/20">
-                                       <td colSpan={4} className="p-2 text-center text-xs text-red-400 font-bold">
-                                           🛑 截止買入 (Cut-off) - 時間約 {cutoffStr}
-                                       </td>
-                                   </tr>
-                               )}
-                           </React.Fragment>
-                       );
-                    })}
+                          return (
+                              <React.Fragment key={level.level}>
+                                  <tr className={isCutoff ? 'bg-red-900/10' : ''}>
+                                     <td className={`p-3 ${THEME.textSecondary} text-center`}>{level.level}</td>
+                                     <td className={`p-3 ${THEME.textPrimary} font-mono`}>{level.smallBlind.toLocaleString()}/{level.bigBlind.toLocaleString()}</td>
+                                     <td className={`p-3 ${THEME.textPrimary} font-mono`}>{level.ante > 0 ? level.ante.toLocaleString() : '-'}</td>
+                                     <td className={`p-3 ${THEME.textPrimary} text-right`}>{level.duration}m</td>
+                                  </tr>
+                                  {isCutoff && (
+                                      <tr className="bg-red-500/5 border-t border-b border-red-500/20">
+                                          <td colSpan={4} className="p-2 text-center text-xs text-red-400/80 font-medium">
+                                              🛑 截止買入 (Cut-off) - {cutoffStr}
+                                          </td>
+                                      </tr>
+                                  )}
+                              </React.Fragment>
+                          );
+                       });
+                    })()}
                  </tbody>
               </table>
            </div>

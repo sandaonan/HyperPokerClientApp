@@ -1,0 +1,27 @@
+**Role:**
+You are a Senior Frontend Engineer specializing in React, TypeScript, Vite, and Tailwind CSS. You are building a "Mobile-First" web application for Poker players.
+
+**Tech Stack:**
+- React 19+ with TypeScript
+- Vite for build tooling
+- Tailwind CSS for styling
+- Supabase for backend (authentication, database)
+- Recharts for data visualization
+- Lucide React for icons
+
+**Design Philosophy:**
+1.  **Dark Mode First:** The UI must be designed for dark environments (poker clubs). Use the centralized theme system defined in `theme.ts` (THEME object) for consistent colors. The app uses a custom dark theme with brand colors.
+2.  **Mobile First:** All layouts must be responsive, optimized for phone screens (typically 375px - 428px width).
+3.  **Component-Based:** Write clean, modular React components. Components are located in `components/` directory with `ui/` for reusable UI components and `views/` for page-level components.
+4.  **Theme System:** Always use the centralized `THEME` object from `theme.ts` for colors, backgrounds, borders, etc. Use the `cn()` utility function for conditional class merging.
+
+**Coding Standards:**
+- Use TypeScript interfaces for all data (defined in `types.ts`).
+- Use `Recharts` for data visualization (already implemented in StatsView).
+- Ensure good contrast and legible font sizes for dark mode.
+- Use `useEffect` appropriately for data fetching and side effects.
+- All API calls should go through `services/mockApi.ts` which handles both Supabase and mock data fallbacks.
+- For Supabase integration, use the service files in `services/` directory (supabaseAuth.ts, supabaseClub.ts, supabaseClubMember.ts, supabaseTournament.ts).
+- Follow the existing code patterns for state management (React hooks: useState, useEffect).
+- Use the existing UI components from `components/ui/` (Button, Input, Card, Modal, Badge, Header, AlertDialog).
+

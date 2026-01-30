@@ -501,11 +501,50 @@ class MockApiService {
   // --- Tournaments ---
 
   async getTournaments(clubId: string): Promise<Tournament[]> {
+    // Try Supabase first if available and clubId is numeric (Supabase club)
+    if (isSupabaseAvailable()) {
+      const clubIdNum = parseInt(clubId);
+      if (!isNaN(clubIdNum)) {
+        try {
+          const { getTournamentsFromSupabase } = await import('./supabaseTournament');
+          const supabaseTournaments = await getTournamentsFromSupabase(clubId);
+          console.log(`[getTournaments] Fetched ${supabaseTournaments.length} tournaments from Supabase for club ${clubId}`);
+          
+          // If Supabase returns tournaments, use them
+          if (supabaseTournaments.length > 0) {
+            return supabaseTournaments;
+          }
+          
+          // If Supabase returns empty array, check if there are mock tournaments for this clubId
+          // This allows fallback to mock data for Supabase clubs that don't have tournaments yet
+          console.log(`[getTournaments] No tournaments from Supabase for club ${clubId}, checking mock data...`);
+          const mockTournaments = SEED_TOURNAMENTS.filter(t => t.clubId === clubId);
+          if (mockTournaments.length > 0) {
+            console.log(`[getTournaments] Found ${mockTournaments.length} mock tournaments, using them as fallback`);
+            // Fall through to mock API processing
+          } else {
+            // No mock tournaments either, return empty array
+            return [];
+          }
+        } catch (error: any) {
+          console.warn('Failed to fetch tournaments from Supabase, falling back to mock:', error.message);
+          // Fall through to mock API
+        }
+      }
+    }
+    
+    // Fallback to mock API (for mock clubs like 'c-1', 'c-2', 'c-3' or when Supabase has no data)
     await delay(300);
     
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     
-    return SEED_TOURNAMENTS.filter(t => t.clubId === clubId).map(t => {
+    const mockTournaments = SEED_TOURNAMENTS.filter(t => t.clubId === clubId);
+    if (mockTournaments.length === 0) {
+      console.log(`[getTournaments] No mock tournaments found for club ${clubId}`);
+      return [];
+    }
+    
+    return mockTournaments.map(t => {
       // Basic logic: Count real registrations
       const realCount = registrations.filter(r => r.tournamentId === t.id && r.status !== 'cancelled').length;
       
@@ -565,7 +604,7 @@ class MockApiService {
       return [...hydratedReal, ...mockRegs].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }
 
-  async registerTournament(userId: string, tournamentId: string, type: 'reserve' | 'buy-in'): Promise<Registration> {
+  async registerTournament(userId: string, tournamentId: string, type: 'reserve'): Promise<Registration> {
     await delay(600);
     
     const tournament = SEED_TOURNAMENTS.find(t => t.id === tournamentId);
@@ -601,63 +640,19 @@ class MockApiService {
 
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     
-    // Check Duplicate or Upgrade
+    // Check Duplicate
     const existingIndex = registrations.findIndex(r => r.userId === userId && r.tournamentId === tournamentId && r.status !== 'cancelled');
     
     if (existingIndex !== -1) {
-        const existing = registrations[existingIndex];
-        
-        if (existing.status === 'reserved' && type === 'buy-in') {
-             const totalCost = tournament.buyIn + tournament.fee;
-             if (userWallet.balance < totalCost) {
-                 throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${userWallet.balance.toLocaleString() || 0}`);
-             }
-             
-             // Update balance (for mock clubs, update localStorage; for Supabase clubs, would need API call)
-             const isMockClub = tournament.clubId.startsWith('c-');
-             if (isMockClub) {
-               const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-               const walletIndex = wallets.findIndex(w => w.userId === userId && w.clubId === tournament.clubId);
-               if (walletIndex !== -1) {
-                 wallets[walletIndex].balance -= totalCost;
-                 localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
-               }
-             }
-             // TODO: For Supabase clubs, update balance via API call
-
-             existing.status = 'paid';
-             localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(registrations));
-             return existing;
-        }
-
-        throw new Error("您已經報名過此賽事");
+        throw new Error("您已經預約過此賽事");
     }
 
-    // Waitlist logic allows over cap
-    if (type === 'buy-in') {
-       const totalCost = tournament.buyIn + tournament.fee;
-       if (userWallet.balance < totalCost) {
-           throw new Error(`餘額不足。需 $${totalCost.toLocaleString()}，當前餘額: $${userWallet.balance.toLocaleString() || 0}`);
-       }
-       
-       // Update balance (for mock clubs, update localStorage; for Supabase clubs, would need API call)
-       const isMockClub = tournament.clubId.startsWith('c-');
-       if (isMockClub) {
-         const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-         const walletIndex = wallets.findIndex(w => w.userId === userId && w.clubId === tournament.clubId);
-         if (walletIndex !== -1) {
-           wallets[walletIndex].balance -= totalCost;
-           localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
-         }
-       }
-       // TODO: For Supabase clubs, update balance via API call
-    }
-
+    // Only allow reserve (no buy-in through app)
     const newReg: Registration = {
         id: `reg-${Date.now()}`,
         tournamentId,
         userId,
-        status: type === 'buy-in' ? 'paid' : 'reserved',
+        status: 'reserved', // Always reserved, payment at counter
         timestamp: new Date().toISOString()
     };
 

@@ -115,9 +115,9 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       }
   };
 
-  const handleRegisterAction = async (type: 'reserve' | 'buy-in') => {
+  const handleRegisterAction = async (type: 'reserve') => {
       if (isGuest) {
-          await showAlert("需要登入", "請先註冊或登入會員，方可報名賽事。");
+          await showAlert("需要登入", "請先註冊或登入會員，方可預約賽事。");
           onBack(); // Go back to Home which might show login CTA
           return;
       }
@@ -126,12 +126,8 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       
       try {
           await mockApi.registerTournament(user.id, detailTournament.id, type);
-          if (type === 'buy-in') {
-             await showAlert("報名成功", "費用已從您的協會錢包扣除。");
-             setDetailTournament(null);
-          } else {
-             await showAlert("預約成功", "您已成功預約席位。\n請於開賽前至櫃檯報到繳費，或於此頁面使用餘額扣款報名。");
-          }
+          await showAlert("預約成功", "您已成功預約席位。\n請於開賽前至櫃檯報到繳費。");
+          setDetailTournament(null);
           loadData(); 
       } catch (e: any) {
           await showAlert("操作失敗", e.message);
@@ -185,7 +181,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       if (t.isLateRegEnded) {
           return <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">已截買</Badge>;
       }
-      return <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">報名中</Badge>;
+      return <Badge className="bg-brand-green/20 text-brand-green border border-brand-green/30">報名中</Badge>;
   };
 
   const renderTimeDisplay = (startTimeIso: string) => {
@@ -255,7 +251,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                             <Check size={10} /> 請至櫃檯繳費
                         </span>
                      ) : (
-                        <span className="text-[10px] text-emerald-500/80 flex items-center gap-1 font-bold">
+                        <span className={`text-[10px] ${THEME.accent}/80 flex items-center gap-1 font-bold`}>
                             <Check size={10} /> 準備參賽
                         </span>
                      )}
@@ -338,7 +334,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 {isGuest && (
                     <button 
                         onClick={handleGuestJoinClub}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-lg flex items-center gap-1 transition-colors animate-pulse"
+                        className={`${THEME.buttonPrimary} text-xs px-3 py-1.5 rounded-full font-bold shadow-lg flex items-center gap-1 transition-colors animate-pulse`}
                     >
                         <UserPlus size={12} /> 申請加入俱樂部
                     </button>

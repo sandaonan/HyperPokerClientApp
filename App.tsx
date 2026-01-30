@@ -114,7 +114,11 @@ const AppContent: React.FC = () => {
                         user={currentUser || { 
                             id: 'guest', username: 'Guest', isProfileComplete: false 
                         } as User} 
-                        onUpdateUser={() => {}} 
+                        onUpdateUser={(updates) => {
+                            if (currentUser) {
+                                setCurrentUser({ ...currentUser, ...updates });
+                            }
+                        }} 
                         onLogout={handleLogout}
                     />
                 </div>

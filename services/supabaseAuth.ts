@@ -22,9 +22,11 @@ function memberToUser(member: Member): User {
     nationalId: member.id_number || undefined,
     nickname: member.nick_name || member.account || undefined, // Use nick_name from DB
     mobile: member.mobile_phone || undefined,
+    email: member.email || undefined, // Added email field
     mobileVerified: false, // TODO: Add mobile verification field to member table
     birthday: member.date_of_birth || undefined,
     gender: gender,
+    nationality: undefined, // TODO: Add nationality field to member table if needed
     isProfileComplete: !!(member.full_name && member.id_number && member.date_of_birth),
     kycUploaded: !!member.id_url,
     avatarUrl: undefined, // TODO: Add avatar_url to member table if needed
@@ -68,7 +70,7 @@ export async function registerUser(
     .insert({
       account,
       password_hash: passwordHash,
-      full_name: account, // Use account as initial full_name
+      full_name: null, // Don't use account as initial full_name
       id_number: '', // Empty initially, user will fill later
       mobile_phone: mobile || null,
       email: null,
@@ -164,10 +166,12 @@ export async function updateUserProfile(user: User): Promise<User> {
     full_name: user.name || null,
     id_number: user.nationalId || null,
     mobile_phone: user.mobile || null,
+    email: user.email || null, // Added email field
     date_of_birth: user.birthday || null,
     nick_name: user.nickname || null, // Update nickname field
     gender: user.gender || null, // Update gender field
     id_url: user.kycUploaded ? 'uploaded' : null, // TODO: Store actual URL if needed
+    // Note: nationality field would need to be added to member table schema
   };
 
   const { data: updatedMember, error } = await supabase

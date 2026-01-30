@@ -12,9 +12,11 @@ export interface User {
   nickname?: string;
   mobile?: string;
   mobileVerified?: boolean; // Added for OTP
+  email?: string; // Added: Email field (optional)
   birthday?: string;
   gender?: 'male' | 'female' | 'other'; // Added: Gender field
   isForeigner?: boolean;
+  nationality?: string; // Added: Nationality for KYC
   kycUploaded?: boolean;
   isProfileComplete: boolean;
   avatarUrl?: string;
@@ -68,11 +70,13 @@ export interface Wallet {
 }
 
 export interface BlindLevel {
-  level: number;
-  smallBlind: number;
-  bigBlind: number;
-  ante: number;
-  duration: number; // minutes
+  level: number; // 级别
+  smallBlind: number; // 小盲
+  bigBlind: number; // 大盲
+  ante: number; // 前注 (ANTE)
+  duration: number; // 时间 (minutes)
+  isBreak?: boolean; // 是否为休息时间 (break)
+  breakDuration?: number; // 休息时长 (minutes, 仅当 isBreak 为 true 时使用)
 }
 
 export type RegistrationStatus = 'reserved' | 'paid' | 'cancelled';
@@ -88,7 +92,7 @@ export interface Registration {
   userLocalId?: string; 
 }
 
-export type TournamentType = '錦標賽' | '限時錦標賽' | '衛星賽' | '賞金賽';
+export type TournamentType = '錦標賽' | '限時錦標賽' | '衛星賽' | '賞金賽' | '豪克系列賽';
 
 export interface Tournament {
   id: string;
@@ -105,8 +109,10 @@ export interface Tournament {
   maxCap: number;
   isLateRegEnded: boolean;
   lateRegLevel: number; // Added: Level number where reg ends
+  maxRebuy?: number; // Added: Maximum number of re-buys allowed
   structure: BlindLevel[];
   clockUrl?: string; // Added: Link to tournament clock
+  durationMinutes?: number; // Added: Tournament duration in minutes (from Supabase)
 }
 
 export interface GameRecord {
@@ -116,9 +122,10 @@ export interface GameRecord {
   gameName: string;
   clubName: string; 
   buyIn: number;    
-  entryCount: number; 
+  entryCount: number; // Number of buy-ins (re-entries)
   seatNumber?: number; // Added
-  profit: number; 
+  profit: number; // Should be >= 0 (if no prize, profit = 0)
   type?: TournamentType; // Added for history display
-  points?: number; // Added for display in StatsView
+  points?: number; // 6 points (regular points)
+  activityPoints?: number; // Activity points (活動點數)
 }

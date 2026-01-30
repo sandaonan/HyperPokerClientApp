@@ -351,6 +351,53 @@ export type Database = {
         }
         Relationships: []
       }
+      signature_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          final_chip_count: number
+          id: string
+          member_id: number
+          signature_url: string | null
+          token: string
+          tournament_id: number
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          final_chip_count?: number
+          id?: string
+          member_id: number
+          signature_url?: string | null
+          token: string
+          tournament_id: number
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          final_chip_count?: number
+          id?: string
+          member_id?: number
+          signature_url?: string | null
+          token?: string
+          tournament_id?: number
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_tokens_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournament"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff: {
         Row: {
           avatar_url: string | null
@@ -580,7 +627,9 @@ export type Database = {
           confirmed_at: string | null
           created_at: string | null
           eliminated_at: string | null
+          entries: Json | null
           entry_number: number
+          final_chip_count: number | null
           final_rank: number | null
           id: number
           member_id: number
@@ -591,6 +640,8 @@ export type Database = {
           prize_amount: number | null
           queue_position: number | null
           requested_at: string
+          signature_data: string | null
+          signature_signed_at: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["tournament_player_status"]
           tournament_id: number
@@ -602,7 +653,9 @@ export type Database = {
           confirmed_at?: string | null
           created_at?: string | null
           eliminated_at?: string | null
+          entries?: Json | null
           entry_number: number
+          final_chip_count?: number | null
           final_rank?: number | null
           id?: number
           member_id: number
@@ -613,6 +666,8 @@ export type Database = {
           prize_amount?: number | null
           queue_position?: number | null
           requested_at: string
+          signature_data?: string | null
+          signature_signed_at?: string | null
           started_at?: string | null
           status: Database["public"]["Enums"]["tournament_player_status"]
           tournament_id: number
@@ -624,7 +679,9 @@ export type Database = {
           confirmed_at?: string | null
           created_at?: string | null
           eliminated_at?: string | null
+          entries?: Json | null
           entry_number?: number
+          final_chip_count?: number | null
           final_rank?: number | null
           id?: number
           member_id?: number
@@ -635,6 +692,8 @@ export type Database = {
           prize_amount?: number | null
           queue_position?: number | null
           requested_at?: string
+          signature_data?: string | null
+          signature_signed_at?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["tournament_player_status"]
           tournament_id?: number
@@ -768,7 +827,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_expired_signature_tokens: { Args: never; Returns: number }
     }
     Enums: {
       audit_action_type:

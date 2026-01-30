@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Camera, Upload, CheckCircle, LogOut, Smartphone, RefreshCw, AlertTriangle, Edit2, Save, MessageSquare, ChevronRight } from 'lucide-react';
+import { Lock, Camera, Upload, CheckCircle, LogOut, Smartphone, RefreshCw, AlertTriangle, Edit2, Save, MessageSquare, ChevronRight, ChevronDown, ChevronUp, Gift, Trophy, Coins } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Header } from '../ui/Header';
@@ -69,22 +69,51 @@ const BirthdaySelector = ({ value, onChange, disabled }: { value: string, onChan
 };
 
 // Circular Progress Component for Mileage
-const MileageCircle = ({ current, total }: { current: number, total: number }) => {
+const MileageCircle = ({ current }: { current: number }) => {
     // Canvas size
     const size = 160;
     const strokeWidth = 10;
     const center = size / 2;
     const radius = (size - strokeWidth) / 2 - 5; // Padding
     
+    // Membership tier thresholds (in 6points)
+    const PEARL_THRESHOLD = 0;      // 珍珠卡 (default)
+    const EMERALD_THRESHOLD = 5000;  // 翡翠卡
+    const PLATINUM_THRESHOLD = 20000; // 白金卡
+    const DIAMOND_THRESHOLD = 50000;  // 金鑽卡
+    
+    // Determine current tier and next threshold
+    let currentTier: string;
+    let nextThreshold: number;
+    let progress: number;
+    
+    if (current >= DIAMOND_THRESHOLD) {
+        currentTier = '金鑽卡';
+        nextThreshold = DIAMOND_THRESHOLD; // Max tier, show current as next
+        progress = 100;
+    } else if (current >= PLATINUM_THRESHOLD) {
+        currentTier = '白金卡';
+        nextThreshold = DIAMOND_THRESHOLD;
+        progress = ((current - PLATINUM_THRESHOLD) / (DIAMOND_THRESHOLD - PLATINUM_THRESHOLD)) * 100;
+    } else if (current >= EMERALD_THRESHOLD) {
+        currentTier = '翡翠卡';
+        nextThreshold = PLATINUM_THRESHOLD;
+        progress = ((current - EMERALD_THRESHOLD) / (PLATINUM_THRESHOLD - EMERALD_THRESHOLD)) * 100;
+    } else {
+        currentTier = '珍珠卡';
+        nextThreshold = EMERALD_THRESHOLD;
+        progress = (current / EMERALD_THRESHOLD) * 100;
+    }
+    
     const circumference = 2 * Math.PI * radius;
-    const percentage = Math.min(100, Math.max(0, (current / total) * 100));
+    const percentage = Math.min(100, Math.max(0, progress));
     const offset = circumference - (percentage / 100) * circumference;
 
     return (
         <div className="flex justify-center w-full py-4">
             <div className="relative" style={{ width: size, height: size }}>
                 <svg className="w-full h-full transform -rotate-90" viewBox={`0 0 ${size} ${size}`}>
-                    {/* Background Track: Using neutral dark gray to match app theme better than slate */}
+                    {/* Background Track */}
                     <circle
                         className="text-neutral-800" 
                         strokeWidth={strokeWidth}
@@ -111,10 +140,12 @@ const MileageCircle = ({ current, total }: { current: number, total: number }) =
                 {/* Text Content - Absolute centered flex container */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
                     <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">里程碑</span>
-                    <span className="text-3xl font-bold text-white font-mono tracking-tighter leading-none shadow-black drop-shadow-sm">{current}</span>
+                    <span className="text-2xl font-bold text-white font-mono tracking-tighter leading-none shadow-black drop-shadow-sm">{current.toLocaleString()}</span>
+                    <span className="text-[10px] text-neutral-400 font-mono mb-1">6points</span>
                     <div className="h-px w-8 bg-neutral-700 my-2"></div>
                     <span className="text-[10px] text-neutral-500 leading-none mb-1">下一門檻</span>
-                    <span className="text-xs font-bold text-neutral-400 font-mono">/ {total.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-neutral-400 font-mono">{nextThreshold.toLocaleString()} 6points</span>
+                    <span className="text-[10px] text-brand-green font-bold mt-1">{currentTier}</span>
                 </div>
             </div>
         </div>
@@ -125,11 +156,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   const { showAlert, showConfirm, showPrompt } = useAlert();
   const [nickname, setNickname] = useState(user.nickname || '');
   const [mobile, setMobile] = useState(user.mobile || '');
+  const [email, setEmail] = useState(user.email || '');
   const [sensitiveData, setSensitiveData] = useState({
     name: user.name || '',
     nationalId: user.nationalId || '',
     birthday: user.birthday || '',
     gender: user.gender || undefined as 'male' | 'female' | 'other' | undefined,
+    nationality: user.nationality || 'TW' as string, // Default to Taiwan
   });
   const [kycUploaded, setKycUploaded] = useState(user.kycUploaded || false);
   const [activeTab, setActiveTab] = useState<'info' | 'club'>('info');
@@ -139,19 +172,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   // Membership Card Modal
   const [showMemberCard, setShowMemberCard] = useState<string | null>(null); // Store Club ID
 
-  // Check if nickname or mobile has changed
+  // Check if nickname, mobile, or email has changed
   const nicknameChanged = nickname !== (user.nickname || '');
   const mobileChanged = mobile !== (user.mobile || '');
+  const emailChanged = email !== (user.email || '');
 
   // Update state when user prop changes
   useEffect(() => {
     setNickname(user.nickname || '');
     setMobile(user.mobile || '');
+    setEmail(user.email || '');
     setSensitiveData({
       name: user.name || '',
       nationalId: user.nationalId || '',
       birthday: user.birthday || '',
       gender: user.gender || undefined,
+      nationality: user.nationality || 'TW',
     });
     setKycUploaded(user.kycUploaded || false);
   }, [user]);
@@ -171,33 +207,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
     setSensitiveData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveMobile = async () => {
-      if (!mobile || mobile.trim() === '') {
-          showAlert("錯誤", "請輸入手機號碼");
-          return;
-      }
-      try {
-          const updatedUser = await mockApi.updateUserProfile({ ...user, mobile });
-          onUpdateUser(updatedUser);
-          // Reset mobile state to match updated user to trigger button color change
-          setMobile(updatedUser.mobile || '');
-          showAlert("成功", "手機號碼更新成功！");
-      } catch (e: any) {
-          showAlert("錯誤", e.message || "更新失敗");
-      }
-  };
-
-  const handleSaveNickname = async () => {
-      try {
-          const updatedUser = await mockApi.updateUserProfile({ ...user, nickname });
-          onUpdateUser(updatedUser);
-          // Reset nickname state to match updated user to trigger button color change
-          setNickname(updatedUser.nickname || '');
-          showAlert("成功", "暱稱已更新");
-      } catch (e: any) {
-          showAlert("錯誤", e.message || "更新失敗");
-      }
-  };
 
   const handleUploadKyc = () => {
       setTimeout(() => {
@@ -207,8 +216,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   };
 
   const handleSaveIdentity = async () => {
-      if (!sensitiveData.name || !sensitiveData.nationalId || !sensitiveData.birthday) {
+      if (!sensitiveData.name || !sensitiveData.birthday) {
           showAlert("資料不完整", "請填寫完整身份資料");
+          return;
+      }
+      // National ID required only for Taiwan (TW)
+      if (sensitiveData.nationality === 'TW' && !sensitiveData.nationalId) {
+          showAlert("資料不完整", "台灣用戶請填寫身分證字號");
           return;
       }
       if (!kycUploaded) {
@@ -258,6 +272,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           const updatedUser = await mockApi.updateUserSensitiveData({
               ...user,
               ...sensitiveData,
+              nationality: sensitiveData.nationality,
               kycUploaded
           });
           
@@ -275,10 +290,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   const selectedWallet = myWallets.find(w => w.clubId === showMemberCard);
   const selectedClubInfo = selectedWallet ? getClubDetails(selectedWallet.clubId) : null;
   
-  // Calculate winnings for selected club
-  const totalWinnings = selectedClubInfo ? GAME_HISTORY
-    .filter(g => g.clubName === selectedClubInfo.name && g.profit > 0)
-    .reduce((acc, curr) => acc + curr.profit, 0) : 0;
+  // Calculate points for selected club (mock data - will come from Supabase)
+  const mockSixPoints = selectedClubInfo ? GAME_HISTORY
+    .filter(g => g.clubName === selectedClubInfo.name)
+    .reduce((acc, curr) => acc + (curr.points || 0), 0) : 0;
+  
+  const mockActivityPoints = selectedClubInfo ? GAME_HISTORY
+    .filter(g => g.clubName === selectedClubInfo.name)
+    .reduce((acc, curr) => acc + (curr.activityPoints || 0), 0) : 0;
+  
+  // Mock redemption items (will come from Supabase)
+  const redemptionItems = [
+    { id: '1', name: '漢堡', pointsType: 'sixPoints' as const, cost: 50 },
+    { id: '2', name: '可樂', pointsType: 'sixPoints' as const, cost: 30 },
+    { id: '3', name: '報名折扣券($100)', pointsType: 'activityPoints' as const, cost: 200 },
+    { id: '4', name: '報名折扣券($200)', pointsType: 'activityPoints' as const, cost: 400 },
+  ];
+  
+  // Expandable state for redemption lists - support multiple expanded
+  const [expandedSixPoints, setExpandedSixPoints] = useState(false);
+  const [expandedActivityPoints, setExpandedActivityPoints] = useState(false);
 
   return (
     <div className="pb-24">
@@ -326,7 +357,89 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       <div className="min-h-[300px]">
       {activeTab === 'info' && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          {/* Identity Section Code (unchanged) */}
+          {/* General Settings Section - Moved to top */}
+          <div className="space-y-4">
+              <h3 className={`text-sm font-bold ${THEME.textSecondary} uppercase tracking-wider`}>一般設定</h3>
+              
+              <div className="space-y-4">
+                  <Input 
+                      label="暱稱 (顯示名稱)" 
+                      value={nickname} 
+                      onChange={(e) => setNickname(e.target.value)}
+                  />
+
+                  <div className="space-y-2">
+                      <label className={`text-xs font-medium ${THEME.textSecondary}`}>手機號碼 <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                          <Smartphone className={`absolute top-2.5 left-3 ${THEME.textSecondary} z-10`} size={16} />
+                          <Input
+                              placeholder="請輸入手機號碼（必填）"
+                              value={mobile}
+                              onChange={(e) => setMobile(e.target.value)}
+                              className="pl-10 pr-10"
+                          />
+                          {mobile && (
+                              <CheckCircle className={`absolute top-2.5 right-3 ${THEME.accent} pointer-events-none z-10`} size={16} />
+                          )}
+                      </div>
+                  </div>
+
+                  <Input 
+                      label="Email（選填）" 
+                      type="email"
+                      placeholder="example@email.com"
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)}
+                  />
+              </div>
+
+              <Button 
+                  size="md" 
+                  fullWidth
+                  className={`transition-colors ${
+                      (nicknameChanged || mobileChanged || emailChanged)
+                          ? THEME.buttonPrimary
+                          : ''
+                  }`}
+                  variant={(nicknameChanged || mobileChanged || emailChanged) ? "primary" : "secondary"} 
+                  onClick={async () => {
+                      // Validate mobile first (required field)
+                      if (!mobile || mobile.trim() === '') {
+                          await showAlert("錯誤", "手機號碼為必填項目，請輸入手機號碼");
+                          return;
+                      }
+                      
+                      // Update all changed fields
+                      try {
+                          const updates: Partial<User> = {};
+                          if (nicknameChanged) updates.nickname = nickname;
+                          if (mobileChanged) updates.mobile = mobile;
+                          if (emailChanged) updates.email = email || undefined;
+                          
+                          const updatedUser = await mockApi.updateUserProfile({ ...user, ...updates });
+                          
+                          // Reset local state to match updated user
+                          setNickname(updatedUser.nickname || '');
+                          setMobile(updatedUser.mobile || '');
+                          setEmail(updatedUser.email || '');
+                          
+                          // Update parent component
+                          onUpdateUser(updatedUser);
+                          
+                          await showAlert("成功", "一般設定已更新！");
+                      } catch (e: any) {
+                          await showAlert("錯誤", e.message || "更新失敗");
+                      }
+                  }}
+                  disabled={!nicknameChanged && !mobileChanged && !emailChanged}
+              >
+                  更新
+              </Button>
+          </div>
+
+          <div className={`h-px ${THEME.border.replace('border', 'bg')} w-full my-2`}></div>
+          
+          {/* Identity Section - Moved below General Settings */}
           <div className={`p-5 rounded-2xl border space-y-4 relative overflow-hidden transition-colors ${isEditingIdentity ? `bg-[#262626] border-brand-green/50 shadow-brand-green/10 shadow-lg` : `${THEME.card} ${THEME.border}`}`}>
                 <div className="flex items-center justify-between">
                      <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${isEditingIdentity ? THEME.accent : THEME.textSecondary}`}>
@@ -354,48 +467,89 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                 )}
 
                 <div className="space-y-4">
-                    <Input 
-                        label="真實姓名" 
-                        placeholder="例：王小明"
-                        value={sensitiveData.name} 
-                        onChange={(e) => handleSensitiveChange('name', e.target.value)}
-                        disabled={!isEditingIdentity}
-                    />
-                    <Input 
-                        label="身分證字號" 
-                        placeholder="例：A123456789"
-                        value={sensitiveData.nationalId} 
-                        onChange={(e) => handleSensitiveChange('nationalId', e.target.value)}
-                        disabled={!isEditingIdentity}
-                    />
-
-                    <BirthdaySelector 
-                        value={sensitiveData.birthday} 
-                        onChange={(val) => handleSensitiveChange('birthday', val)} 
-                        disabled={!isEditingIdentity}
-                    />
-
-                    <div className="w-full">
-                        <label className={`block text-xs font-medium ${THEME.textSecondary} mb-1.5`}>性別</label>
-                        <select 
-                            className={`${THEME.input} rounded-lg p-2.5 text-sm w-full outline-none focus:border-brand-green ${!isEditingIdentity ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            value={sensitiveData.gender || ''}
-                            onChange={(e) => handleSensitiveChange('gender', e.target.value || undefined)}
+                    <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
+                        <Input 
+                            label="真實姓名" 
+                            placeholder="例：王小明"
+                            value={sensitiveData.name} 
+                            onChange={(e) => handleSensitiveChange('name', e.target.value)}
                             disabled={!isEditingIdentity}
-                        >
-                            <option value="">請選擇</option>
-                            <option value="male">男</option>
-                            <option value="female">女</option>
-                            <option value="other">傾向不透露</option>
-                        </select>
+                        />
+                    </div>
+                    
+                    {/* Nationality Selection */}
+                    <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
+                        <div className="w-full">
+                            <label className={`block text-xs font-medium ${THEME.textSecondary} mb-1.5`}>國籍</label>
+                            <select 
+                                className={`${THEME.input} rounded-lg p-2.5 text-sm w-full outline-none focus:border-brand-green ${!isEditingIdentity ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                value={sensitiveData.nationality || 'TW'}
+                                onChange={(e) => handleSensitiveChange('nationality', e.target.value)}
+                                disabled={!isEditingIdentity}
+                            >
+                                <option value="TW">台灣</option>
+                                <option value="OTHER">外國人</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* National ID - Only show for Taiwan */}
+                    {sensitiveData.nationality === 'TW' && (
+                        <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
+                            <Input 
+                                label="身分證字號" 
+                                placeholder="例：A123456789"
+                                value={sensitiveData.nationalId} 
+                                onChange={(e) => handleSensitiveChange('nationalId', e.target.value)}
+                                disabled={!isEditingIdentity}
+                            />
+                        </div>
+                    )}
+
+                    {/* Passport Number - Only show for foreigners */}
+                    {sensitiveData.nationality === 'OTHER' && (
+                        <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
+                            <Input 
+                                label="護照號碼" 
+                                placeholder="例：P12345678"
+                                value={sensitiveData.nationalId} 
+                                onChange={(e) => handleSensitiveChange('nationalId', e.target.value)}
+                                disabled={!isEditingIdentity}
+                            />
+                        </div>
+                    )}
+
+                    <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
+                        <BirthdaySelector 
+                            value={sensitiveData.birthday} 
+                            onChange={(val) => handleSensitiveChange('birthday', val)} 
+                            disabled={!isEditingIdentity}
+                        />
+                    </div>
+
+                    <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
+                        <div className="w-full">
+                            <label className={`block text-xs font-medium ${THEME.textSecondary} mb-1.5`}>性別</label>
+                            <select 
+                                className={`${THEME.input} rounded-lg p-2.5 text-sm w-full outline-none focus:border-brand-green ${!isEditingIdentity ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                value={sensitiveData.gender || ''}
+                                onChange={(e) => handleSensitiveChange('gender', e.target.value || undefined)}
+                                disabled={!isEditingIdentity}
+                            >
+                                <option value="">請選擇</option>
+                                <option value="male">男</option>
+                                <option value="female">女</option>
+                                <option value="other">傾向不透露</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div className="pt-2">
                         <label className={`text-xs font-medium ${THEME.textSecondary} mb-2 block`}>證件驗證 (上傳)</label>
                         {kycUploaded ? (
                             <div className="flex flex-col gap-2">
-                                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg">
-                                    <div className="flex items-center gap-2 text-emerald-400">
+                                <div className={`flex items-center justify-between bg-brand-green/10 border border-brand-green/20 p-3 rounded-lg`}>
+                                    <div className={`flex items-center gap-2 ${THEME.accent}`}>
                                         <CheckCircle size={16} />
                                         <span className="text-sm font-medium">已上傳完畢</span>
                                     </div>
@@ -412,12 +566,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         ) : (
                             isEditingIdentity ? (
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
-                                        <Upload size={14} /> <span className="text-xs">正面</span>
-                                    </button>
-                                    <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
-                                        <Upload size={14} /> <span className="text-xs">反面</span>
-                                    </button>
+                                    {sensitiveData.nationality === 'TW' ? (
+                                        <>
+                                            <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
+                                                <Upload size={14} /> <span className="text-xs">身分證正面</span>
+                                            </button>
+                                            <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
+                                                <Upload size={14} /> <span className="text-xs">身分證反面</span>
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
+                                                <Upload size={14} /> <span className="text-xs">護照封面</span>
+                                            </button>
+                                            <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
+                                                <Upload size={14} /> <span className="text-xs">護照內頁</span>
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             ) : (
                                 <div className={`text-xs ${THEME.textSecondary} italic`}>未上傳</div>
@@ -434,66 +601,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         </Button>
                     </div>
                 )}
-          </div>
-
-          <div className={`h-px ${THEME.border.replace('border', 'bg')} w-full my-2`}></div>
-          
-          <div className="space-y-4">
-              <h3 className={`text-sm font-bold ${THEME.textSecondary} uppercase tracking-wider`}>一般設定</h3>
-              
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                    <Input 
-                        label="暱稱 (顯示名稱)" 
-                        value={nickname} 
-                        onChange={(e) => setNickname(e.target.value)}
-                    />
-                </div>
-                <Button 
-                    size="md" 
-                    className={`mb-[1px] shrink-0 whitespace-nowrap transition-colors ${
-                        nicknameChanged 
-                            ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white' 
-                            : ''
-                    }`}
-                    variant={nicknameChanged ? "primary" : "secondary"} 
-                    onClick={handleSaveNickname}
-                >
-                    更新
-                </Button>
-              </div>
-
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                    <div className="space-y-2">
-                        <label className={`text-xs font-medium ${THEME.textSecondary}`}>手機號碼</label>
-                        <div className="relative">
-                            <Smartphone className={`absolute top-2.5 left-3 ${THEME.textSecondary}`} size={16} />
-                            <Input
-                                placeholder="請輸入手機號碼"
-                                value={mobile}
-                                onChange={(e) => setMobile(e.target.value)}
-                                className="pl-10"
-                            />
-                            {mobile && (
-                                <CheckCircle className="absolute top-2.5 right-3 text-emerald-500 pointer-events-none" size={16} />
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <Button 
-                    size="md" 
-                    className={`mb-[1px] shrink-0 whitespace-nowrap transition-colors ${
-                        mobileChanged 
-                            ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white' 
-                            : ''
-                    }`}
-                    variant={mobileChanged ? "primary" : "secondary"} 
-                    onClick={handleSaveMobile}
-                >
-                    更新
-                </Button>
-              </div>
           </div>
 
         </div>
@@ -530,7 +637,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                             </div>
                             <div>
                                 <h3 className="font-bold text-lg font-display">{club.name}</h3>
-                                <p className={`text-xs ${THEME.textSecondary}`}>ID: {club.localId}</p>
                             </div>
                         </div>
                         
@@ -546,8 +652,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <p className={`text-xs ${THEME.textSecondary} uppercase tracking-wider`}>儲值金餘額</p>
-                                <p className="text-xl font-bold font-mono text-emerald-400">
+                                <p className={`text-xs ${THEME.textSecondary} uppercase tracking-wider`}>預繳報名費</p>
+                                <p className={`text-xl font-bold font-mono ${THEME.accent}`}>
                                     ${wallet.balance.toLocaleString()}
                                 </p>
                             </div>
@@ -626,17 +732,79 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
              </div>
 
              {/* 2. Mileage Circle (Moved below card) */}
-             <MileageCircle current={selectedWallet?.points || 0} total={3000} />
+             <MileageCircle current={mockSixPoints} />
 
-             {/* 3. Financial Info & Feedback */}
+             {/* 3. Financial Info & Points */}
              <div className={`w-full bg-[#262626] rounded-xl p-4 border ${THEME.border} space-y-3 mt-2`}>
                  <div className={`flex justify-between items-center border-b ${THEME.border} pb-2`}>
                      <span className={`text-sm ${THEME.textSecondary}`}>預繳報名費餘額</span>
                      <span className={`font-mono font-bold ${THEME.textPrimary}`}>${selectedWallet?.balance.toLocaleString()}</span>
                  </div>
-                 <div className="flex justify-between items-center">
-                     <span className={`text-sm ${THEME.textSecondary}`}>歷史總獎金</span>
-                     <span className={`font-mono font-bold ${THEME.accent}`}>${totalWinnings.toLocaleString()}</span>
+                 
+                 {/* 6points Section */}
+                 <div className="space-y-2">
+                     <button
+                         onClick={() => setExpandedSixPoints(!expandedSixPoints)}
+                         className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
+                     >
+                         <div className="flex items-center gap-2">
+                             <Trophy size={16} className={THEME.accent} />
+                             <span className={`text-sm ${THEME.textPrimary} font-medium`}>6points 點數</span>
+                         </div>
+                         <div className="flex items-center gap-2">
+                             <span className={`font-mono font-bold ${THEME.accent}`}>{mockSixPoints}</span>
+                             {expandedSixPoints ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
+                         </div>
+                     </button>
+                     {expandedSixPoints && (
+                         <div className="pl-6 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                             {redemptionItems.filter(item => item.pointsType === 'sixPoints').map(item => (
+                                 <div key={item.id} className={`flex justify-between items-center p-2 rounded ${THEME.card} border ${THEME.border}`}>
+                                     <div className="flex items-center gap-2">
+                                         <Gift size={12} className={THEME.accent} />
+                                         <span className={`text-xs ${THEME.textPrimary}`}>{item.name}</span>
+                                     </div>
+                                     <span className={`text-xs font-mono ${THEME.accent}`}>{item.cost} 6points</span>
+                                 </div>
+                             ))}
+                             <p className={`text-[10px] ${THEME.textSecondary} italic mt-2 pt-2 border-t ${THEME.border}`}>
+                                 如需兌換請至協會櫃檯
+                             </p>
+                         </div>
+                     )}
+                 </div>
+                 
+                 {/* Activity Points Section */}
+                 <div className="space-y-2">
+                     <button
+                         onClick={() => setExpandedActivityPoints(!expandedActivityPoints)}
+                         className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
+                     >
+                         <div className="flex items-center gap-2">
+                             <Coins size={16} className="text-blue-400" />
+                             <span className={`text-sm ${THEME.textPrimary} font-medium`}>活動點數</span>
+                         </div>
+                         <div className="flex items-center gap-2">
+                             <span className={`font-mono font-bold text-blue-400`}>{mockActivityPoints}</span>
+                             {expandedActivityPoints ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
+                         </div>
+                     </button>
+                     {expandedActivityPoints && (
+                         <div className="pl-6 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                             {redemptionItems.filter(item => item.pointsType === 'activityPoints').map(item => (
+                                 <div key={item.id} className={`flex justify-between items-center p-2 rounded ${THEME.card} border ${THEME.border}`}>
+                                     <div className="flex items-center gap-2">
+                                         <Gift size={12} className="text-blue-400" />
+                                         <span className={`text-xs ${THEME.textPrimary}`}>{item.name}</span>
+                                     </div>
+                                     <span className={`text-xs font-mono text-blue-400`}>{item.cost} 活動點數</span>
+                                 </div>
+                             ))}
+                             <p className={`text-[10px] ${THEME.textSecondary} italic mt-2 pt-2 border-t ${THEME.border}`}>
+                                 如需兌換請至協會櫃檯
+                             </p>
+                         </div>
+                     )}
                  </div>
              </div>
              

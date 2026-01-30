@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, History, Loader2, TrendingUp, TrendingDown, Store, Clock, Filter, Trophy, Coins, Check, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { Ticket, History, Loader2, Store, Clock, Filter, Trophy, Coins, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { GAME_HISTORY, SEED_CLUBS, SEED_TOURNAMENTS } from '../../constants';
 import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';
@@ -22,23 +21,6 @@ interface ActiveGame {
     tournament: Tournament;
 }
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    const isWin = data.profit > 0;
-    return (
-      <div className={`${THEME.card} border ${THEME.border} p-3 rounded-lg shadow-xl z-50`}>
-        <p className={`text-xs ${THEME.textSecondary} mb-1`}>{data.date}</p>
-        <p className={`text-sm font-bold ${THEME.textPrimary} mb-1`}>{data.gameName}</p>
-        <p className={`text-sm font-mono font-bold ${isWin ? THEME.accent : 'text-red-500'}`}>
-          {isWin ? '+' : ''}{data.profit.toLocaleString()}
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
-
 export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTournaments }) => {
   const { showAlert, showConfirm } = useAlert();
   const [activeGames, setActiveGames] = useState<ActiveGame[]>([]);
@@ -51,7 +33,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
   
   // Collapsible States
   const [showHistory, setShowHistory] = useState(false);
-  const [showStats, setShowStats] = useState(false);
 
   // Filter State
   const [selectedClubFilter, setSelectedClubFilter] = useState<string>('All');
@@ -119,7 +100,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
     if (t.isLateRegEnded) {
         return <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">已截買</Badge>;
     }
-    return <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">報名中</Badge>;
+    return <Badge className="bg-brand-green/20 text-brand-green border border-brand-green/30">報名中</Badge>;
 };
 
   const renderTimeDisplay = (startTimeIso: string) => {
@@ -164,18 +145,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       if (selectedClubFilter === 'All') return true;
       return game.clubName === selectedClubFilter;
   });
-
-  let cumulative = 0;
-  const chartData = [...GAME_HISTORY].map(game => {
-    cumulative += game.profit;
-    return {
-      ...game,
-      cumulative,
-      displayDate: new Date(game.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    };
-  });
-  const totalProfit = chartData[chartData.length - 1]?.cumulative || 0;
-  const isPositive = totalProfit >= 0;
 
   // Group active games by Club ID
   const gamesByClub = activeGames.reduce((acc, game) => {
@@ -283,7 +252,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                                            <Check size={10} /> 請至櫃檯繳費
                                        </span>
                                     ) : (
-                                       <span className="text-[10px] text-emerald-500/80 flex items-center gap-1 font-bold">
+                                       <span className={`text-[10px] ${THEME.accent}/80 flex items-center gap-1 font-bold`}>
                                            <Check size={10} /> 準備參賽
                                        </span>
                                     )}
@@ -364,18 +333,28 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex flex-col items-end gap-1">
+                                            {/* Profit Display - No negative values */}
                                             <div className={`font-mono font-bold text-sm ${game.profit > 0 ? THEME.accent : THEME.textSecondary}`}>
-                                                {game.profit > 0 ? '+' : ''}{game.profit.toLocaleString()}
+                                                {game.profit > 0 ? '+' : ''}{Math.max(0, game.profit).toLocaleString()}
                                             </div>
-                                            {game.points && game.points > 0 && (
-                                                <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-0.5">
-                                                    <Trophy size={8} /> +{game.points}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className={`text-[10px] ${THEME.textSecondary} mt-0.5`}>
-                                            Buy-in: ${game.buyIn.toLocaleString()}
+                                            {/* Points Display - Two types */}
+                                            <div className="flex items-center gap-1.5">
+                                                {game.points && game.points > 0 && (
+                                                    <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-0.5">
+                                                        <Trophy size={8} /> {game.points} pts
+                                                    </span>
+                                                )}
+                                                {game.activityPoints && game.activityPoints > 0 && (
+                                                    <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 flex items-center gap-0.5">
+                                                        <Coins size={8} /> {game.activityPoints} 活動點數
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {/* Buy-in count */}
+                                            <div className={`text-[10px] ${THEME.textSecondary} mt-0.5`}>
+                                                Buy-in: ${game.buyIn.toLocaleString()} {game.entryCount > 1 ? `(${game.entryCount}次)` : ''}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -390,67 +369,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
             )}
         </div>
 
-        {/* Collapsible Stats Section */}
-        <div className={`border ${THEME.border} rounded-xl overflow-hidden bg-[#262626]/10`}>
-            <button 
-                onClick={() => setShowStats(!showStats)}
-                className={`w-full flex items-center justify-between p-4 bg-[#262626]/30 ${THEME.cardHover} transition-colors`}
-            >
-                <div className="flex items-center gap-2">
-                    <BarChart3 className={THEME.textSecondary} size={18} />
-                    <span className={`text-base font-bold ${THEME.textPrimary}`}>數據統計</span>
-                </div>
-                {showStats ? <ChevronUp size={18} className={THEME.textSecondary} /> : <ChevronDown size={18} className={THEME.textSecondary} />}
-            </button>
-            
-            {showStats && (
-                <div className={`p-4 border-t ${THEME.border} animate-in fade-in slide-in-from-top-1 duration-200 space-y-6`}>
-                    <div className={`bg-[#262626] rounded-2xl p-6 border ${THEME.border} relative overflow-hidden`}>
-                        <div className={`absolute -right-10 -top-10 w-32 h-32 bg-brand-green/10 rounded-full blur-2xl`}></div>
-                        <p className={`text-sm ${THEME.textSecondary} mb-1 font-medium`}>總盈利 (Total Profit)</p>
-                        <div className="flex items-center gap-3">
-                            <h3 className={`text-3xl font-bold font-mono ${isPositive ? THEME.accent : 'text-red-500'} glow-text`}>
-                                {isPositive ? '+' : ''}{totalProfit.toLocaleString()}
-                            </h3>
-                            {isPositive ? <TrendingUp className={THEME.accent} /> : <TrendingDown className="text-red-500" />}
-                        </div>
-                    </div>
-
-                    <div className={`h-[300px] w-full ${THEME.card}/50 rounded-2xl p-2 border ${THEME.border}`}>
-                        <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-                            <XAxis 
-                                dataKey="displayDate" 
-                                stroke="#525252" 
-                                tick={{fontSize: 10}} 
-                                tickLine={false}
-                                axisLine={false}
-                                dy={10}
-                            />
-                            <YAxis 
-                                stroke="#525252" 
-                                tick={{fontSize: 10}} 
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={(value) => `${value/1000}k`}
-                                dx={-10}
-                            />
-                            <Tooltip content={<CustomTooltip />} cursor={{stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '4 4'}} />
-                            <Line 
-                                type="monotone" 
-                                dataKey="cumulative" 
-                                stroke={isPositive ? '#f59e0b' : '#ef4444'} 
-                                strokeWidth={2}
-                                dot={{fill: '#0f172a', strokeWidth: 2, r: 3}}
-                                activeDot={{r: 5, fill: '#fff', stroke: '#f59e0b'}}
-                            />
-                        </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            )}
-        </div>
 
       </div>
 

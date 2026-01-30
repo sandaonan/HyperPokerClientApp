@@ -586,7 +586,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub, isGuest }) => 
                 <h3 className={`text-lg font-bold ${THEME.textPrimary} group-hover:${THEME.accent} transition-colors font-display tracking-wide`}>
                   {club.name}
                 </h3>
-                <span className={`text-xs ${THEME.textSecondary} font-mono`}>ID: {club.localId}</span>
               </div>
             </div>
 
@@ -682,9 +681,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectClub, isGuest }) => 
                             <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <h3 className={`font-bold ${THEME.textPrimary}`}>{club.name}</h3>
-                                </div>
-                                <div className="text-right">
-                                    <span className={`text-xs ${THEME.textSecondary}`}>ID: {club.localId}</span>
                                 </div>
                             </div>
                             <p className={`text-sm ${THEME.textSecondary} mb-4 line-clamp-2`}>{club.description}</p>
