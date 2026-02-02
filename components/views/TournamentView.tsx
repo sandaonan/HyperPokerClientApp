@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Users, ArrowLeft, Check, Info, MapPin, Wallet as WalletIcon, Coins, Calendar, ShieldAlert, UserPlus, Filter, Ticket, ChevronDown, ChevronUp, Navigation, Map } from 'lucide-react';
+import { Clock, Users, ArrowLeft, Check, Info, MapPin, Wallet as WalletIcon, Coins, Calendar, ShieldAlert, UserPlus, Filter, Ticket, ChevronDown, ChevronUp, Navigation, Map, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -18,8 +18,11 @@ interface TournamentViewProps {
   onNavigateProfile: () => void;
 }
 
-// Buy-in Filter Options
-type BuyInFilter = 'All' | 'Low' | 'Mid' | 'High';
+// Buy-in Filter - now using number (amount) or 'All'
+type BuyInFilter = 'All' | number;
+
+// Date Filter - now using number of days offset from today
+// 0 = today, 1 = tomorrow, 2 = day after tomorrow, -1 = yesterday, etc.
 
 export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBack, onNavigateProfile }) => {
   const { showAlert, showConfirm } = useAlert();
@@ -34,7 +37,13 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
   // UI State
   const [buyInFilter, setBuyInFilter] = useState<BuyInFilter>('All');
+  const [dateOffset, setDateOffset] = useState<number>(0); // 0 = today, 1 = tomorrow, etc.
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  
+  // Reset buy-in filter when date changes
+  useEffect(() => {
+      setBuyInFilter('All');
+  }, [dateOffset]);
   
   // Geolocation
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
@@ -185,23 +194,83 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
   };
 
   const renderTimeDisplay = (startTimeIso: string) => {
+      if (!startTimeIso) {
+          return <div className={`font-mono ${THEME.textPrimary} font-bold text-sm`}>--:--</div>;
+      }
       const start = new Date(startTimeIso);
+      if (isNaN(start.getTime())) {
+          console.warn('Invalid date:', startTimeIso);
+          return <div className={`font-mono ${THEME.textPrimary} font-bold text-sm`}>--:--</div>;
+      }
+      const dateStr = `${start.getMonth() + 1}/${start.getDate()}`;
       const timeStr = start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-      return <div className={`font-mono ${THEME.textPrimary} font-bold text-sm`}>{timeStr}</div>;
+      return (
+          <div className={`font-mono ${THEME.textPrimary} font-bold text-sm flex flex-col items-end gap-0.5`}>
+              <span className="text-xs leading-tight">{dateStr}</span>
+              <span className="leading-tight">{timeStr}</span>
+          </div>
+      );
+  };
+
+  // Helper function to check if tournament is on a specific date (by offset from today)
+  const isTournamentOnDate = (tournament: Tournament, daysOffset: number): boolean => {
+      const tournamentDate = new Date(tournament.startTime);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(today);
+      targetDate.setDate(targetDate.getDate() + daysOffset);
+      
+      const tournamentDay = new Date(tournamentDate);
+      tournamentDay.setHours(0, 0, 0, 0);
+      
+      return tournamentDay.getTime() === targetDate.getTime();
+  };
+
+  // Get date label for display
+  const getDateLabel = (daysOffset: number): string => {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + daysOffset);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDay = new Date(targetDate);
+      targetDay.setHours(0, 0, 0, 0);
+      
+      const dayDiff = Math.floor((targetDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      const weekdays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+      const weekday = weekdays[targetDate.getDay()];
+      
+      if (dayDiff === 0) {
+          return `今天（${weekday}）`;
+      } else if (dayDiff === 1) {
+          return `明天（${weekday}）`;
+      } else if (dayDiff === -1) {
+          return `昨天（${weekday}）`;
+      } else {
+          return `${targetDate.getMonth() + 1}/${targetDate.getDate()}（${weekday}）`;
+      }
   };
 
   // Grouping logic & Filtering
   const myRegIds = myRegistrations.map(r => r.tournamentId);
-  const myEntries = tournaments.filter(t => myRegIds.includes(t.id));
   
-  const otherTournaments = tournaments.filter(t => {
-      if (myRegIds.includes(t.id)) return false;
-      
+  // Filter by date first
+  const dateFilteredTournaments = tournaments.filter(t => isTournamentOnDate(t, dateOffset));
+  
+  // Calculate unique buy-in amounts from filtered tournaments for dynamic filter buttons
+  const uniqueBuyInAmounts = Array.from(
+    new Set(dateFilteredTournaments.map(t => t.buyIn + t.fee))
+  ).sort((a: number, b: number) => a - b);
+  
+  const myEntries = dateFilteredTournaments.filter(t => myRegIds.includes(t.id));
+  
+  // otherTournaments includes all tournaments (even if user has registered)
+  // so that registered tournaments can also appear in the club tournament list
+  const otherTournaments = dateFilteredTournaments.filter(t => {
+      // Filter by specific amount if selected, otherwise show all
+      if (buyInFilter === 'All') return true;
       const total = t.buyIn + t.fee;
-      if (buyInFilter === 'Low') return total < 2000;
-      if (buyInFilter === 'Mid') return total >= 2000 && total <= 5000;
-      if (buyInFilter === 'High') return total > 5000;
-      return true;
+      return total === buyInFilter;
   });
 
   const renderTournamentCard = (t: Tournament, reg?: Registration) => {
@@ -219,14 +288,11 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
             >
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex flex-col gap-1">
-                        <h3 className={`font-bold text-base ${THEME.textPrimary}`}>{t.name}</h3>
+                        <h3 className={`font-bold text-base ${THEME.textPrimary} font-display tracking-wide`}>{t.name}</h3>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {renderStateBadge(t)}
-                            <div className={`h-3 w-px ${THEME.border.replace('border', 'bg')} mx-0.5`}></div>
-                            {t.type && <span className={`text-[10px] ${THEME.textPrimary} border ${THEME.border} rounded px-1.5 py-[1px] ${THEME.card}/50`}>{t.type}</span>}
-                            <Badge variant={isPaid ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0 whitespace-nowrap">
-                                    {isPaid ? '已付款' : '已預約'}
-                            </Badge>
+                            <Badge variant="warning">已預約</Badge>
+                            {t.type && <span className={`text-[10px] ${THEME.textSecondary} border ${THEME.border} rounded px-1 w-fit`}>{t.type}</span>}
                         </div>
                     </div>
                     {renderTimeDisplay(t.startTime)}
@@ -246,15 +312,23 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                         <span className={THEME.textSecondary}>起始: {t.startingChips.toLocaleString()}</span>
                      </div>
                      
-                     {!isPaid ? (
-                        <span className="text-[10px] text-yellow-500/80 flex items-center gap-1 font-bold animate-pulse">
-                            <Check size={10} /> 請至櫃檯繳費
-                        </span>
-                     ) : (
-                        <span className={`text-[10px] ${THEME.accent}/80 flex items-center gap-1 font-bold`}>
-                            <Check size={10} /> 準備參賽
-                        </span>
-                     )}
+                     <div className="flex items-center gap-3">
+                        <div className={`flex items-center gap-1 ${THEME.textSecondary}`}>
+                            <Users size={12} />
+                            <span className={isOverCap ? 'text-danger font-bold' : ''}>
+                                {t.reservedCount}/{t.maxCap}
+                            </span>
+                        </div>
+                        {!isPaid ? (
+                            <span className="text-[10px] text-yellow-500/80 flex items-center gap-1 font-bold animate-pulse">
+                                <Check size={10} /> 請至櫃檯繳費
+                            </span>
+                        ) : (
+                            <span className={`text-[10px] ${THEME.accent}/80 flex items-center gap-1 font-bold`}>
+                                <Check size={10} /> 準備參賽
+                            </span>
+                        )}
+                     </div>
                 </div>
             </Card>
         );
@@ -269,7 +343,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
         <div className="flex justify-between items-center mb-2">
             <div className="flex flex-col gap-1">
                 <h3 className={`font-bold text-base ${THEME.textPrimary} font-display tracking-wide`}>{t.name}</h3>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                     {renderStateBadge(t)}
                     {t.type && <span className={`text-[10px] ${THEME.textSecondary} border ${THEME.border} rounded px-1 w-fit`}>{t.type}</span>}
                 </div>
@@ -423,66 +497,98 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
 
         <div>
             <div className="flex flex-col gap-3 mb-4 mt-6">
-                 <div className="flex items-center justify-between">
-                     {/* Increased Font Size here as requested */}
-                     <h2 className={`text-2xl font-bold ${THEME.textPrimary} font-display border-l-4 border-brand-green pl-3`}>今日賽程</h2>
-                     <p className={`text-xs ${THEME.textSecondary} font-mono`}>{now.toLocaleDateString()}</p>
+                 {/* Date Filter - Simple UI with arrows */}
+                 <div className="flex items-center justify-center gap-4 py-2">
+                    <button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setDateOffset(dateOffset - 1);
+                        }}
+                        className={`p-2 rounded-lg ${THEME.card} border ${THEME.border} ${THEME.cardHover} ${THEME.textPrimary} hover:bg-brand-green/10 hover:border-brand-green/30 transition-colors`}
+                        aria-label="前一天"
+                    >
+                        <ChevronLeft size={24} strokeWidth={2.5} />
+                    </button>
+                    <div className={`text-lg font-bold ${THEME.textPrimary} min-w-[140px] text-center`}>
+                        {getDateLabel(dateOffset)}
+                    </div>
+                    <button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setDateOffset(dateOffset + 1);
+                        }}
+                        className={`p-2 rounded-lg ${THEME.card} border ${THEME.border} ${THEME.cardHover} ${THEME.textPrimary} hover:bg-brand-green/10 hover:border-brand-green/30 transition-colors`}
+                        aria-label="後一天"
+                    >
+                        <ChevronRight size={24} strokeWidth={2.5} />
+                    </button>
                  </div>
 
-                 {/* Buy-in Filter Chips */}
-                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    <button 
-                        onClick={() => setBuyInFilter('All')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'All' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
-                    >
-                        全部
-                    </button>
-                    <button 
-                        onClick={() => setBuyInFilter('Low')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'Low' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
-                    >
-                        小額 (&lt;2k)
-                    </button>
-                    <button 
-                        onClick={() => setBuyInFilter('Mid')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'Mid' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
-                    >
-                        中額 (2k-5k)
-                    </button>
-                    <button 
-                        onClick={() => setBuyInFilter('High')}
-                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap ${buyInFilter === 'High' ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border}` : `bg-transparent ${THEME.textSecondary} ${THEME.border}`}`}
-                    >
-                        高額 (&gt;5k)
-                    </button>
-                 </div>
+                 {/* Dynamic Buy-in Filter Chips */}
+                 {uniqueBuyInAmounts.length > 0 && (
+                     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        <button 
+                            onClick={() => setBuyInFilter('All')}
+                            className={`text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap font-bold ${
+                                buyInFilter === 'All' 
+                                    ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border} bg-brand-green/10 border-brand-green/30` 
+                                    : `bg-transparent ${THEME.textSecondary} ${THEME.border}`
+                            }`}
+                        >
+                            全部
+                        </button>
+                        {uniqueBuyInAmounts.map((amount) => (
+                            <button 
+                                key={amount}
+                                onClick={() => setBuyInFilter(amount)}
+                                className={`text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap font-bold ${
+                                    buyInFilter === amount 
+                                        ? `${THEME.buttonSecondary} ${THEME.textPrimary} ${THEME.border} bg-brand-green/10 border-brand-green/30` 
+                                        : `bg-transparent ${THEME.textSecondary} ${THEME.border}`
+                                }`}
+                            >
+                                ${amount.toLocaleString()}
+                            </button>
+                        ))}
+                     </div>
+                 )}
             </div>
             
             {loading ? (
                 <div className={`py-10 text-center ${THEME.textSecondary}`}>載入賽程中...</div>
             ) : (
                 <>
-                    {myEntries.length > 0 && (
+                    {myEntries.length > 0 ? (
                         <div className="animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
-                            <div className={`text-xs font-bold ${THEME.accent} mb-2 flex items-center gap-1`}>
-                                <Ticket size={12} /> 我的報名
-                            </div>
                             <div className="space-y-2">
                                 {myEntries.map(t => renderTournamentCard(t, myRegistrations.find(r => r.tournamentId === t.id)))}
                             </div>
-                            <div className={`h-px bg-gradient-to-r from-transparent via-brand-border to-transparent w-full my-4`}></div>
+                            {otherTournaments.length > 0 && (
+                                <>
+                                    <div className={`h-px bg-gradient-to-r from-transparent via-brand-border to-transparent w-full my-4`}></div>
+                                    <div className="space-y-2">
+                                        {otherTournaments.map(t => {
+                                            const reg = myRegistrations.find(r => r.tournamentId === t.id);
+                                            return renderTournamentCard(t, reg);
+                                        })}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {otherTournaments.length > 0 ? (
+                                otherTournaments.map(t => {
+                                    const reg = myRegistrations.find(r => r.tournamentId === t.id);
+                                    return renderTournamentCard(t, reg);
+                                })
+                            ) : (
+                                <div className={`text-center py-6 text-xs ${THEME.textSecondary} italic`}>
+                                    沒有符合篩選條件的賽事
+                                </div>
+                            )}
                         </div>
                     )}
-
-                    <div className="space-y-2">
-                        {otherTournaments.length > 0 ? (
-                            otherTournaments.map(t => renderTournamentCard(t))
-                        ) : (
-                            <div className={`text-center py-6 text-xs ${THEME.textSecondary} italic`}>
-                                沒有符合篩選條件的賽事
-                            </div>
-                        )}
-                    </div>
                 </>
             )}
         </div>

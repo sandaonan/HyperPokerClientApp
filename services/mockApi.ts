@@ -17,6 +17,15 @@ const STORAGE_KEYS = {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Helper function to determine if a club uses Supabase data
+ * Supabase clubs have numeric IDs (e.g., '1', '2')
+ * Mock clubs have 'c-' prefix (e.g., 'c-1', 'c-2', 'c-3')
+ */
+export function isSupabaseClub(clubId: string): boolean {
+  return !clubId.startsWith('c-') && !isNaN(Number(clubId));
+}
+
 class MockApiService {
   constructor() {
     this.initialize();
@@ -272,18 +281,19 @@ class MockApiService {
   // --- Wallet & Club Membership ---
 
   async getWallet(userId: string, clubId: string): Promise<Wallet | null> {
-      // Check if this is a Supabase club (numeric ID) or mock club (c-1, c-2, c-3)
-      // Mock clubs have format 'c-X', Supabase clubs are numeric strings
-      const isMockClub = clubId.startsWith('c-');
-      const clubIdNum = parseInt(clubId);
-      const isSupabaseClub = !isMockClub && !isNaN(clubIdNum);
-      
-      // Try Supabase first if available and this is a Supabase club
-      if (isSupabaseAvailable() && isSupabaseClub) {
+      // Strict separation: Supabase clubs use ONLY Supabase data, mock clubs use ONLY mock data
+      if (isSupabaseClub(clubId)) {
+        // Supabase club: ONLY use Supabase data, no fallback to localStorage
+        if (!isSupabaseAvailable()) {
+          console.warn(`[getWallet] Supabase not available for club ${clubId}, returning null`);
+          return null;
+        }
+        
         try {
           const memberId = parseInt(userId);
+          const clubIdNum = parseInt(clubId);
           
-          if (!isNaN(memberId)) {
+          if (!isNaN(memberId) && !isNaN(clubIdNum)) {
             const memberships = await getUserClubMemberships(memberId);
             const membership = memberships.find(cm => cm.club_id === clubIdNum);
             
@@ -320,13 +330,12 @@ class MockApiService {
             return null;
           }
         } catch (error: any) {
-          console.warn('Failed to get wallet from Supabase:', error.message);
-          // For Supabase clubs, if query fails, return null (don't fallback to localStorage)
-          return null;
+          console.error(`[getWallet] Failed to get wallet from Supabase for club ${clubId}:`, error.message);
+          return null; // Return null instead of falling back to localStorage
         }
       }
 
-      // Fallback to mock API (only for mock clubs c-1, c-2, c-3)
+      // Mock club: ONLY use localStorage data
       await delay(300);
       const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
       const wallet = wallets.find(w => w.userId === userId && w.clubId === clubId);
@@ -335,7 +344,10 @@ class MockApiService {
 
   // New method to fetch all wallets for profile view
   async getAllWallets(userId: string): Promise<Wallet[]> {
-      // Try Supabase first if available
+      const supabaseWallets: Wallet[] = [];
+      const mockWallets: Wallet[] = [];
+      
+      // Fetch Supabase wallets (for Supabase clubs only)
       if (isSupabaseAvailable()) {
         try {
           const memberId = parseInt(userId);
@@ -345,7 +357,7 @@ class MockApiService {
             
             // Convert club_member to Wallet format
             // Include ALL memberships regardless of status (activated, pending_approval, etc.)
-            const wallets: Wallet[] = memberships.map(cm => {
+            supabaseWallets.push(...memberships.map(cm => {
               // Map member_status to Wallet status
               let status: MembershipStatus = 'applying';
               if (cm.member_status === 'activated') {
@@ -373,35 +385,32 @@ class MockApiService {
                 status: status,
                 kycStatus: kycStatus,
               };
-            });
-            
-            // Merge ALL localStorage wallets (including mock clubs c-1, c-2, c-3)
-            // This allows users to see mock associations for demo purposes
-            const localWallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-            const mockWallets = localWallets.filter(w => 
-              w.userId === userId && 
-              w.status !== 'banned'
-            );
-            
-            // Combine and deduplicate (Supabase clubs take priority over localStorage)
-            const allWallets = [...wallets, ...mockWallets];
-            const uniqueWallets = allWallets.filter((w, index, self) => 
-              index === self.findIndex(t => t.clubId === w.clubId)
-            );
-            
-            console.log('[getAllWallets] Final wallets:', uniqueWallets);
-            return uniqueWallets;
+            }));
           }
         } catch (error: any) {
-          console.warn('Failed to get wallets from Supabase, falling back to mock:', error.message);
-          // Fall through to mock API
+          console.error('[getAllWallets] Failed to get wallets from Supabase:', error.message);
+          // Continue to fetch mock wallets even if Supabase fails
         }
       }
 
-      // Fallback to mock API
+      // Fetch mock wallets (for mock clubs only - those with 'c-' prefix)
       await delay(300);
-      const wallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
-      return wallets.filter(w => w.userId === userId && w.status !== 'banned');
+      const localWallets: Wallet[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.WALLETS) || '[]');
+      mockWallets.push(...localWallets.filter(w => 
+        w.userId === userId && 
+        w.status !== 'banned' &&
+        isSupabaseClub(w.clubId) === false // Only include mock clubs
+      ));
+      
+      // Combine Supabase and mock wallets (they're for different clubs, so no conflict)
+      // Deduplicate by clubId (Supabase takes priority)
+      const allWallets = [...supabaseWallets, ...mockWallets];
+      const uniqueWallets = allWallets.filter((w, index, self) => 
+        index === self.findIndex(t => t.clubId === w.clubId)
+      );
+      
+      console.log('[getAllWallets] Final wallets:', uniqueWallets);
+      return uniqueWallets;
   }
 
   async joinClub(userId: string, clubId: string): Promise<Wallet> {
@@ -501,39 +510,26 @@ class MockApiService {
   // --- Tournaments ---
 
   async getTournaments(clubId: string): Promise<Tournament[]> {
-    // Try Supabase first if available and clubId is numeric (Supabase club)
-    if (isSupabaseAvailable()) {
-      const clubIdNum = parseInt(clubId);
-      if (!isNaN(clubIdNum)) {
-        try {
-          const { getTournamentsFromSupabase } = await import('./supabaseTournament');
-          const supabaseTournaments = await getTournamentsFromSupabase(clubId);
-          console.log(`[getTournaments] Fetched ${supabaseTournaments.length} tournaments from Supabase for club ${clubId}`);
-          
-          // If Supabase returns tournaments, use them
-          if (supabaseTournaments.length > 0) {
-            return supabaseTournaments;
-          }
-          
-          // If Supabase returns empty array, check if there are mock tournaments for this clubId
-          // This allows fallback to mock data for Supabase clubs that don't have tournaments yet
-          console.log(`[getTournaments] No tournaments from Supabase for club ${clubId}, checking mock data...`);
-          const mockTournaments = SEED_TOURNAMENTS.filter(t => t.clubId === clubId);
-          if (mockTournaments.length > 0) {
-            console.log(`[getTournaments] Found ${mockTournaments.length} mock tournaments, using them as fallback`);
-            // Fall through to mock API processing
-          } else {
-            // No mock tournaments either, return empty array
-            return [];
-          }
-        } catch (error: any) {
-          console.warn('Failed to fetch tournaments from Supabase, falling back to mock:', error.message);
-          // Fall through to mock API
-        }
+    // Strict separation: Supabase clubs use ONLY Supabase data, mock clubs use ONLY mock data
+    if (isSupabaseClub(clubId)) {
+      // Supabase club: ONLY use tournament_waitlist data, no fallback to mock
+      if (!isSupabaseAvailable()) {
+        console.warn(`[getTournaments] Supabase not available for club ${clubId}, returning empty array`);
+        return [];
+      }
+      
+      try {
+        const { getTournamentWaitlistsFromSupabase } = await import('./supabaseTournamentWaitlist');
+        const supabaseTournaments = await getTournamentWaitlistsFromSupabase(clubId);
+        console.log(`[getTournaments] Fetched ${supabaseTournaments.length} tournament waitlists from Supabase for club ${clubId}`);
+        return supabaseTournaments; // Return even if empty - no fallback to mock
+      } catch (error: any) {
+        console.error(`[getTournaments] Failed to fetch tournament waitlists from Supabase for club ${clubId}:`, error.message);
+        return []; // Return empty array instead of falling back to mock
       }
     }
     
-    // Fallback to mock API (for mock clubs like 'c-1', 'c-2', 'c-3' or when Supabase has no data)
+    // Mock club: ONLY use mock data from constants.ts
     await delay(300);
     
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
@@ -577,6 +573,39 @@ class MockApiService {
 
   async getTournamentRegistrations(tournamentId: string): Promise<Registration[]> {
       await delay(400);
+      
+      // Check if this is a Supabase tournament (numeric ID) or mock tournament (string ID)
+      const tournamentWaitlistId = parseInt(tournamentId);
+      const isSupabaseTournament = !isNaN(tournamentWaitlistId);
+      
+      // Strict separation: Supabase tournaments use reservation table, mock tournaments use localStorage
+      if (isSupabaseTournament && isSupabaseAvailable()) {
+        try {
+          const { getReservationsByTournamentWaitlist } = await import('./supabaseReservation');
+          const reservations = await getReservationsByTournamentWaitlist(tournamentWaitlistId);
+          
+          // Map reservations to Registration format
+          // Only show 'waiting' status as 'reserved' (paid status is handled separately)
+          const mappedRegistrations: Registration[] = reservations
+            .filter(r => r.status === 'waiting') // Only show waiting reservations in reserved list
+            .map((reservation) => ({
+              id: `reg-${reservation.id}`,
+              tournamentId: tournamentId,
+              userId: reservation.member_id.toString(),
+              status: 'reserved' as RegistrationStatus, // Map 'waiting' to 'reserved'
+              timestamp: reservation.requested_at,
+              userLocalId: reservation.member_id.toString(), // Display member_id as requested
+              userDisplayName: undefined, // Optional - can be fetched from member table if needed
+            }));
+          
+          return mappedRegistrations;
+        } catch (error: any) {
+          console.error(`[getTournamentRegistrations] Failed to fetch reservations for tournament ${tournamentId}:`, error);
+          return []; // Return empty array instead of falling back to mock
+        }
+      }
+      
+      // Mock tournament: Use localStorage
       const allRegs: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
       const realRegs = allRegs.filter(r => r.tournamentId === tournamentId && r.status !== 'cancelled');
       
@@ -607,10 +636,30 @@ class MockApiService {
   async registerTournament(userId: string, tournamentId: string, type: 'reserve'): Promise<Registration> {
     await delay(600);
     
-    const tournament = SEED_TOURNAMENTS.find(t => t.id === tournamentId);
-    if (!tournament) throw new Error("賽事不存在");
+    // Get tournament - check if it's from Supabase or mock
+    let tournament: Tournament | null = null;
+    const clubId = await this.getTournamentClubId(tournamentId);
+    
+    if (!clubId) {
+      throw new Error("賽事不存在");
+    }
 
-    if (tournament.isLateRegEnded) throw new Error("此賽事已截止報名，無法預約。");
+    // Fetch tournament to get details
+    const tournaments = await this.getTournaments(clubId);
+    tournament = tournaments.find(t => t.id === tournamentId) || null;
+    
+    // Fallback to SEED_TOURNAMENTS for mock clubs
+    if (!tournament && !isSupabaseClub(clubId)) {
+      tournament = SEED_TOURNAMENTS.find(t => t.id === tournamentId) || null;
+    }
+
+    if (!tournament) {
+      throw new Error("賽事不存在");
+    }
+
+    if (tournament.isLateRegEnded) {
+      throw new Error("此賽事已截止報名，無法預約。");
+    }
 
     // Get wallet from Supabase (if available) or localStorage
     const userWallet = await this.getWallet(userId, tournament.clubId);
@@ -638,6 +687,42 @@ class MockApiService {
       throw new Error("您的會員狀態不符合報名條件。");
     }
 
+    // Strict separation: Supabase clubs write to reservation table, mock clubs use localStorage
+    if (isSupabaseClub(tournament.clubId)) {
+      // Supabase club: Write to reservation table
+      if (!isSupabaseAvailable()) {
+        throw new Error("系統暫時無法處理預約，請稍後再試。");
+      }
+
+      try {
+        const { createReservation } = await import('./supabaseReservation');
+        const memberId = parseInt(userId);
+        const clubIdNum = parseInt(tournament.clubId);
+        const tournamentWaitlistId = parseInt(tournamentId);
+
+        if (isNaN(memberId) || isNaN(clubIdNum) || isNaN(tournamentWaitlistId)) {
+          throw new Error("無效的會員或賽事資訊");
+        }
+
+        const reservation = await createReservation(tournamentWaitlistId, memberId, clubIdNum);
+
+        // Return Registration format for UI compatibility
+        const newReg: Registration = {
+          id: `reg-${reservation.id}`,
+          tournamentId,
+          userId,
+          status: 'reserved',
+          timestamp: reservation.requested_at,
+        };
+
+        return newReg;
+      } catch (error: any) {
+        console.error('[registerTournament] Failed to create reservation in Supabase:', error);
+        throw error; // Re-throw the error (it should have a user-friendly message)
+      }
+    }
+
+    // Mock club: Use localStorage
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     
     // Check Duplicate
@@ -662,8 +747,70 @@ class MockApiService {
     return newReg;
   }
 
+  // Helper to get club ID from tournament ID
+  private async getTournamentClubId(tournamentId: string): Promise<string | null> {
+    // Try to find in current tournaments first (for Supabase clubs)
+    // This is a simplified approach - in production, you might want to cache this
+    const allClubs = SEED_CLUBS; // For mock clubs
+    for (const club of allClubs) {
+      const tournaments = await this.getTournaments(club.id);
+      if (tournaments.some(t => t.id === tournamentId)) {
+        return club.id;
+      }
+    }
+    
+    // Fallback: check SEED_TOURNAMENTS for mock tournaments
+    const mockTournament = SEED_TOURNAMENTS.find(t => t.id === tournamentId);
+    if (mockTournament) {
+      return mockTournament.clubId;
+    }
+    
+    return null;
+  }
+
   async cancelRegistration(userId: string, tournamentId: string): Promise<void> {
     await delay(400);
+    
+    // Get tournament club ID to determine if it's Supabase or mock
+    const clubId = await this.getTournamentClubId(tournamentId);
+    if (!clubId) {
+      throw new Error("找不到報名記錄");
+    }
+
+    // Strict separation: Supabase clubs cancel in reservation table, mock clubs use localStorage
+    if (isSupabaseClub(clubId)) {
+      // Supabase club: Cancel reservation in database
+      if (!isSupabaseAvailable()) {
+        throw new Error("系統暫時無法處理取消預約，請稍後再試。");
+      }
+
+      try {
+        const { getReservationsByTournamentWaitlist, cancelReservation } = await import('./supabaseReservation');
+        const memberId = parseInt(userId);
+        const tournamentWaitlistId = parseInt(tournamentId);
+
+        if (isNaN(memberId) || isNaN(tournamentWaitlistId)) {
+          throw new Error("無效的會員或賽事資訊");
+        }
+
+        // Find the reservation for this member and tournament
+        const reservations = await getReservationsByTournamentWaitlist(tournamentWaitlistId);
+        const userReservation = reservations.find(r => r.member_id === memberId && r.status === 'waiting');
+
+        if (!userReservation) {
+          throw new Error("找不到報名記錄");
+        }
+
+        // Cancel the reservation
+        await cancelReservation(userReservation.id, memberId);
+        return;
+      } catch (error: any) {
+        console.error('[cancelRegistration] Failed to cancel reservation in Supabase:', error);
+        throw error; // Re-throw the error (it should have a user-friendly message)
+      }
+    }
+
+    // Mock club: Use localStorage
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     const regIndex = registrations.findIndex(r => r.userId === userId && r.tournamentId === tournamentId && r.status !== 'cancelled');
     

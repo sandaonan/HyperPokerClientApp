@@ -104,9 +104,22 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
 };
 
   const renderTimeDisplay = (startTimeIso: string) => {
+      if (!startTimeIso) {
+          return <div className={`font-mono ${THEME.textPrimary} font-bold text-sm`}>--:--</div>;
+      }
       const start = new Date(startTimeIso);
+      if (isNaN(start.getTime())) {
+          console.warn('Invalid date:', startTimeIso);
+          return <div className={`font-mono ${THEME.textPrimary} font-bold text-sm`}>--:--</div>;
+      }
+      const dateStr = `${start.getMonth() + 1}/${start.getDate()}`;
       const timeStr = start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-      return <div className="font-mono text-white font-bold text-sm">{timeStr}</div>;
+      return (
+          <div className={`font-mono ${THEME.textPrimary} font-bold text-sm flex flex-col items-end`}>
+              <span className="text-xs">{dateStr}</span>
+              <span>{timeStr}</span>
+          </div>
+      );
   };
 
   const handleHistoryClick = (game: GameRecord) => {
@@ -175,13 +188,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
         
         {/* Active / Registered Games Section */}
         <div className="mb-10">
-          <div className="flex items-center gap-3 mb-6">
-             <div className={`w-1 h-8 bg-brand-green rounded-full shadow-[0_0_10px_rgba(6,193,103,0.5)]`}></div>
-             <div className="flex flex-col">
-                 <h3 className={`font-display font-bold text-2xl ${THEME.textPrimary} tracking-wide`}>進行中 / 已報名</h3>
-                 <p className={`text-xs ${THEME.textSecondary} font-medium uppercase tracking-widest`}>Active Tournaments</p>
-             </div>
-          </div>
           
           {loading ? (
               <div className={`flex justify-center py-8 ${THEME.textSecondary}`}>
@@ -214,19 +220,18 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                                     <div className="flex flex-col gap-1 overflow-hidden">
                                          <h4 className={`font-bold ${THEME.textPrimary} text-base truncate`}>{item.tournament.name}</h4>
                                          <div className="flex items-center gap-1.5 flex-wrap">
-                                             {/* Status Badge Added */}
+                                             {/* Status Badge */}
                                              {renderStateBadge(item.tournament)}
-                                             <div className={`h-3 w-px ${THEME.border.replace('border', 'bg')} mx-0.5`}></div>
-                                             {/* Type Badge Restored */}
-                                             {item.tournament.type && (
-                                                <span className={`text-[10px] ${THEME.textPrimary} border ${THEME.border} rounded px-1.5 py-[1px] ${THEME.card}/50`}>
-                                                    {item.tournament.type}
-                                                </span>
-                                             )}
-                                             
+                                             {/* Reserved/Paid Badge */}
                                              <Badge variant={isPaid ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0 whitespace-nowrap">
                                                 {isPaid ? '已付款' : '已預約'}
                                              </Badge>
+                                             {/* Type Badge */}
+                                             {item.tournament.type && (
+                                                <span className={`text-[10px] ${THEME.textSecondary} border ${THEME.border} rounded px-1 w-fit`}>
+                                                    {item.tournament.type}
+                                                </span>
+                                             )}
                                          </div>
                                     </div>
                                     {renderTimeDisplay(item.tournament.startTime)}

@@ -8,6 +8,8 @@ import { Tournament, Wallet, Registration } from '../../types';
 import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
 import { THEME } from '../../theme';
+import { isSupabaseClub } from '../../services/mockApi';
+import { getPaidPlayersByWaitlistId, TournamentPaidData } from '../../services/supabaseTournamentPaid';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -31,6 +33,45 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const [playerList, setPlayerList] = useState<Registration[]>([]);
   const [listTab, setListTab] = useState<'reserved' | 'paid'>('reserved');
   const [isPromoExpanded, setIsPromoExpanded] = useState(false);
+  // State for paid tournaments (from tournament table)
+  const [paidTournaments, setPaidTournaments] = useState<TournamentPaidData[]>([]);
+  const [paidTournamentsLoading, setPaidTournamentsLoading] = useState(false);
+
+  // Mock paid tournaments for Hyper 協會 (c-1) - for demo purposes
+  const getMockPaidTournaments = (tournamentId: string): TournamentPaidData[] => {
+    // Only show mock data for Hyper 協會 (c-1) tournaments
+    if (tournament?.clubId !== 'c-1') {
+      return [];
+    }
+
+    // Mock tournaments that were created from this waitlist
+    // These are tournaments that have already started from this waitlist
+    const mockTournaments: TournamentPaidData[] = [
+      {
+        tournamentId: 1001,
+        tournamentName: '每日深籌賽 #1',
+        playerCount: 8,
+        maxPlayers: 60,
+        startTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+      },
+      {
+        tournamentId: 1002,
+        tournamentName: '每日深籌賽 #2',
+        playerCount: 12,
+        maxPlayers: 60,
+        startTime: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
+      },
+      {
+        tournamentId: 1003,
+        tournamentName: '新秀練習賽 #1',
+        playerCount: 5,
+        maxPlayers: 40,
+        startTime: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+      },
+    ];
+
+    return mockTournaments;
+  };
 
   useEffect(() => {
       if (tournament) {
@@ -47,6 +88,34 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                   setListTab('reserved');
               }
           });
+
+          // Fetch paid tournaments from tournament table (only for Supabase clubs)
+          if (isSupabaseClub(tournament.clubId)) {
+              const tournamentWaitlistId = parseInt(tournament.id);
+              const clubId = parseInt(tournament.clubId);
+              
+              if (!isNaN(tournamentWaitlistId) && !isNaN(clubId)) {
+                  setPaidTournamentsLoading(true);
+                  getPaidPlayersByWaitlistId(tournamentWaitlistId, clubId)
+                      .then((data) => {
+                          setPaidTournaments(data);
+                      })
+                      .catch((error) => {
+                          console.error('Failed to fetch paid tournaments:', error);
+                          setPaidTournaments([]);
+                      })
+                      .finally(() => {
+                          setPaidTournamentsLoading(false);
+                      });
+              }
+          } else {
+              // For mock clubs (c-1, c-2, etc.), use mock data
+              const mockData = getMockPaidTournaments(tournament.id);
+              setPaidTournaments(mockData);
+          }
+      } else {
+          setPlayerList([]);
+          setPaidTournaments([]);
       }
   }, [tournament]);
 
@@ -76,6 +145,16 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   if (isEnded && paidPlayers.length === 0 && registration && registration.status === 'paid') {
       paidPlayers = [registration];
   }
+
+  // Calculate total paid players count (sum of all tournament playerCount)
+  const totalPaidCount = paidTournaments.reduce((sum, t) => sum + t.playerCount, 0);
+  
+  // Calculate total participants (reserved + paid)
+  const totalParticipants = reservedList.length + totalPaidCount;
+
+  // Check if current user already has a reservation
+  const userHasReservation = registration && registration.status === 'reserved' || 
+    (userWallet && reservedList.some(r => r.userId === userWallet.userId));
 
   const handleReserveClick = async () => {
       // If full, warn about waitlist
@@ -202,8 +281,8 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                      <Users size={14} className={THEME.textSecondary} />
                      <span className={`text-sm font-bold ${THEME.textPrimary}`}>目前參賽</span>
                  </div>
-                 <div className={`font-mono text-sm font-bold ${tournament.reservedCount >= tournament.maxCap ? 'text-red-500' : THEME.textPrimary}`}>
-                     {isEnded ? tournament.reservedCount : `${tournament.reservedCount} / ${tournament.maxCap}`}
+                 <div className={`font-mono text-sm font-bold ${totalParticipants >= tournament.maxCap ? 'text-red-500' : THEME.textPrimary}`}>
+                     {isEnded ? totalParticipants : `${totalParticipants} / ${tournament.maxCap}`}
                      <span className={`text-xs ${THEME.textSecondary} font-normal ml-1`}>人</span>
                  </div>
              </div>
@@ -221,7 +300,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     onClick={() => setListTab('paid')}
                     className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'paid' ? 'bg-brand-green/40 text-brand-green' : `${THEME.textSecondary} ${THEME.cardHover}`}`}
                  >
-                    {isEnded ? `參賽名單` : `已繳費 (${paidPlayers.length})`}
+                    {isEnded ? `參賽名單` : `已繳費 (${totalPaidCount})`}
                  </button>
              </div>
 
@@ -230,7 +309,6 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                      reservedList.length > 0 ? (
                          <div className="space-y-3">
                              {/* Main List */}
-                             <div className={`text-xs ${THEME.textSecondary} font-bold uppercase mb-1`}>正選名單 ({mainReservedList.length} / {tournament.maxCap})</div>
                              <div className="grid grid-cols-2 gap-2">
                                  {mainReservedList.map((p, idx) => {
                                      const isMe = userWallet && p.userId === userWallet.userId;
@@ -267,20 +345,69 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                          </div>
                      ) : <p className={`text-center text-xs ${THEME.textSecondary} py-2`}>尚無預約</p>
                  ) : (
-                     paidPlayers.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-2">
-                            {paidPlayers.map((p, idx) => {
-                                const isMe = (userWallet && p.userId === userWallet.userId) || (registration && p.userId === registration.userId);
-                                return (
-                                    <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-brand-green/20 border border-brand-green/30 text-brand-green font-bold' : `${THEME.textSecondary} ${THEME.card}/50`}`}>
-                                        <span className={`w-5 h-5 rounded-full ${THEME.card} flex items-center justify-center text-[10px]`}>{idx + 1}</span>
-                                        <span>ID: {p.userLocalId || '888'}</span>
-                                        {isMe && <span className="ml-auto text-[10px]">(我)</span>}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : <p className={`text-center text-xs ${THEME.textSecondary} py-2`}>尚無資料</p>
+                     // Paid players tab
+                     paidTournaments.length > 0 ? (
+                         // Show tournament list (for both Supabase and mock clubs)
+                         paidTournamentsLoading ? (
+                             <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>載入中...</div>
+                         ) : (
+                             <div className="space-y-2">
+                                 <div className="overflow-y-auto max-h-48">
+                                     <div className="flex flex-col gap-2">
+                                         {paidTournaments.map((t) => {
+                                             const startTime = t.startTime ? new Date(t.startTime) : null;
+                                             const formattedTime = startTime 
+                                                 ? `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`
+                                                 : null;
+                                             const playerDisplay = t.maxPlayers 
+                                                 ? `${t.playerCount}/${t.maxPlayers}`
+                                                 : `${t.playerCount}`;
+                                             
+                                             return (
+                                                 <div 
+                                                     key={t.tournamentId} 
+                                                     className={`flex items-center justify-between p-2 rounded ${THEME.card} border ${THEME.border}`}
+                                                 >
+                                                     <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                         <Trophy size={14} className={THEME.accent} />
+                                                         <div className="flex flex-col flex-1 min-w-0">
+                                                             <span className={`text-xs ${THEME.textPrimary} font-medium truncate`}>
+                                                                 {t.tournamentName}
+                                                             </span>
+                                                             {formattedTime && (
+                                                                 <span className={`text-[10px] ${THEME.textSecondary} mt-0.5`}>
+                                                                     開始時間: {formattedTime}
+                                                                 </span>
+                                                             )}
+                                                         </div>
+                                                     </div>
+                                                     <span className={`text-xs font-mono font-bold ${THEME.accent} shrink-0 ml-2`}>
+                                                         {playerDisplay} 人
+                                                     </span>
+                                                 </div>
+                                             );
+                                         })}
+                                     </div>
+                                 </div>
+                             </div>
+                         )
+                     ) : paidPlayers.length > 0 ? (
+                         // Mock clubs: Show player list (existing behavior)
+                         <div className="grid grid-cols-2 gap-2">
+                             {paidPlayers.map((p, idx) => {
+                                 const isMe = (userWallet && p.userId === userWallet.userId) || (registration && p.userId === registration.userId);
+                                 return (
+                                     <div key={p.id} className={`flex items-center gap-2 text-xs p-1.5 rounded ${isMe ? 'bg-brand-green/20 border border-brand-green/30 text-brand-green font-bold' : `${THEME.textSecondary} ${THEME.card}/50`}`}>
+                                         <span className={`w-5 h-5 rounded-full ${THEME.card} flex items-center justify-center text-[10px]`}>{idx + 1}</span>
+                                         <span>ID: {p.userLocalId || '888'}</span>
+                                         {isMe && <span className="ml-auto text-[10px]">(我)</span>}
+                                     </div>
+                                 );
+                             })}
+                         </div>
+                     ) : (
+                         <p className={`text-center text-xs ${THEME.textSecondary} py-2`}>尚無資料</p>
+                     )
                  )}
              </div>
 
@@ -296,21 +423,15 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     // Registered State
                     <div className="space-y-3">
                         {registration.status === 'reserved' ? (
-                            <>
-                                <Button 
-                                    type="button" 
-                                    fullWidth 
-                                    variant="outline" 
-                                    onClick={handleCancelClick} 
-                                    className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
-                                >
-                                    取消預約
-                                </Button>
-                                <div className={`text-center text-xs ${THEME.textSecondary} py-2 px-2`}>
-                                    <p className={`${THEME.textPrimary} mb-0.5`}>已預約席位</p>
-                                    <p className="text-[10px] opacity-75">請於開賽前至櫃檯報到繳費</p>
-                                </div>
-                            </>
+                            <Button 
+                                type="button" 
+                                fullWidth 
+                                variant="outline" 
+                                onClick={handleCancelClick} 
+                                className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
+                            >
+                                取消預約
+                            </Button>
                         ) : (
                             <div className={`flex items-center justify-center gap-2 py-2 text-brand-green text-sm font-bold`}>
                                 <ShieldCheck size={16} /> 已完成報名
@@ -323,6 +444,12 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                          {isClosed ? (
                              <div className={`flex items-center justify-center gap-2 ${THEME.textSecondary} text-sm`}>
                                  <Lock size={14} /> 報名已截止
+                             </div>
+                         ) : userHasReservation ? (
+                             // User already has reservation - show status instead of button
+                             <div className={`text-center py-2 px-2 ${THEME.card} rounded-lg border ${THEME.border}`}>
+                                 <p className={`${THEME.textPrimary} text-sm font-bold mb-0.5`}>已預約席位</p>
+                                 <p className={`text-[10px] ${THEME.textSecondary} opacity-75`}>請於開賽前至櫃檯報到繳費</p>
                              </div>
                          ) : (
                             <>

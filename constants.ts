@@ -2342,6 +2342,11 @@ export const NEARBY_CLUBS_DATA: NearbyClub[] = [
 ];
 
 const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(tomorrow.getDate() + 1);
+const dayAfterTomorrow = new Date(today);
+dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
 const MOCK_STRUCTURE = [
   { level: 1, smallBlind: 100, bigBlind: 100, ante: 100, duration: 20 },
   { level: 2, smallBlind: 100, bigBlind: 200, ante: 200, duration: 20 },
@@ -2654,6 +2659,100 @@ export const SEED_TOURNAMENTS: Tournament[] = [
     isLateRegEnded: false,
     lateRegLevel: 5,
     maxRebuy: 2,
+    structure: MOCK_STRUCTURE,
+  },
+  // --- Tomorrow's Tournaments for c-1 (Hyper 協會) ---
+  {
+    id: 't-mock-tomorrow-1',
+    clubId: 'c-1',
+    name: '明日深籌賽',
+    description: '明日的招牌深籌賽事。',
+    type: '錦標賽',
+    promotionNote: `🔥 早鳥優惠：開賽前完成報名，加贈 2,000 籌碼！\n${COMMON_RULES}`,
+    buyIn: 3000,
+    fee: 400,
+    startingChips: 20000,
+    startTime: new Date(tomorrow.setHours(14, 0, 0, 0)).toISOString(), // Tomorrow 14:00
+    reservedCount: 8,
+    maxCap: 60,
+    isLateRegEnded: false,
+    lateRegLevel: 6,
+    maxRebuy: 3,
+    structure: MOCK_STRUCTURE,
+    clockUrl: 'https://www.youtube.com/watch?v=placeholder',
+  },
+  {
+    id: 't-mock-tomorrow-2',
+    clubId: 'c-1',
+    name: '明日快速賽',
+    description: '明日的快速賽事，適合時間有限的玩家。',
+    type: '限時錦標賽',
+    promotionNote: COMMON_RULES,
+    buyIn: 1500,
+    fee: 150,
+    startingChips: 12000,
+    startTime: new Date(tomorrow.setHours(19, 30, 0, 0)).toISOString(), // Tomorrow 19:30
+    reservedCount: 12,
+    maxCap: 50,
+    isLateRegEnded: false,
+    lateRegLevel: 5,
+    maxRebuy: 2,
+    structure: MOCK_STRUCTURE,
+  },
+  {
+    id: 't-mock-tomorrow-3',
+    clubId: 'c-1',
+    name: '明日豪客賽',
+    description: '明日的高額豪客賽。',
+    type: '豪克系列賽',
+    promotionNote: `包含自助餐點與無限暢飲。\n${COMMON_RULES}`,
+    buyIn: 15000,
+    fee: 1500,
+    startingChips: 75000,
+    startTime: new Date(tomorrow.setHours(20, 0, 0, 0)).toISOString(), // Tomorrow 20:00
+    reservedCount: 5,
+    maxCap: 30,
+    isLateRegEnded: false,
+    lateRegLevel: 8,
+    maxRebuy: 5,
+    structure: MOCK_STRUCTURE,
+    clockUrl: 'https://www.youtube.com/watch?v=placeholder',
+  },
+  // --- Day After Tomorrow's Tournaments for c-1 (Hyper 協會) ---
+  {
+    id: 't-mock-dayafter-1',
+    clubId: 'c-1',
+    name: '後天週末賽',
+    description: '週末特別賽事，獎金加倍！',
+    type: '錦標賽',
+    promotionNote: `🎉 週末特別活動：獎金池額外增加 50%！\n${COMMON_RULES}`,
+    buyIn: 5000,
+    fee: 500,
+    startingChips: 30000,
+    startTime: new Date(dayAfterTomorrow.setHours(15, 0, 0, 0)).toISOString(), // Day after tomorrow 15:00
+    reservedCount: 18,
+    maxCap: 80,
+    isLateRegEnded: false,
+    lateRegLevel: 7,
+    maxRebuy: 3,
+    structure: MOCK_STRUCTURE,
+    clockUrl: 'https://www.youtube.com/watch?v=placeholder',
+  },
+  {
+    id: 't-mock-dayafter-2',
+    clubId: 'c-1',
+    name: '後天新手友善賽',
+    description: '專為新手設計的週末賽事。',
+    type: '衛星賽',
+    promotionNote: `前三名可獲得下週大賽門票。\n${COMMON_RULES}`,
+    buyIn: 800,
+    fee: 80,
+    startingChips: 8000,
+    startTime: new Date(dayAfterTomorrow.setHours(18, 0, 0, 0)).toISOString(), // Day after tomorrow 18:00
+    reservedCount: 3,
+    maxCap: 40,
+    isLateRegEnded: false,
+    lateRegLevel: 4,
     structure: MOCK_STRUCTURE,
   },
 ];

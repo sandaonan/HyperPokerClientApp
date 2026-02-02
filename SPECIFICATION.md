@@ -116,17 +116,31 @@ HyperPoker 是一個針對德州撲克玩家設計的移動端優先 (Mobile-Fir
 1. **未報名**:
    - **前提**: 賽事狀態必須為 `OPEN`（未截止報名）
    - **額滿處理**: 若人數已達上限，按鈕顯示「**加入候補 (Join Waitlist)**」。點擊後依然可以預約，但狀態標記為候補
-   - 顯示按鈕: **「預約」** 或 **「加入候補」**
-   - 行為: 點擊後不扣款，僅佔位。Modal **不關閉**，狀態更新為已預約
+   - 顯示按鈕: **「預約席位」** 或 **「加入候補」**
+   - 行為: 點擊後創建 `reservation` 記錄，`status = 'waiting'`，`queue_position` 自動計算（最大 queue_position + 1）。不扣款，僅佔位。Modal **不關閉**，狀態更新為已預約
 
 2. **已預約 (Reserved/Waitlisted)**:
-   - 顯示按鈕 A: **「取消預約」** (點擊後取消席位/候補)
-   - 顯示按鈕 B: **「確認報名」** (Buy-in)
-   - 行為: 檢查俱樂部錢包餘額。若餘額充足，扣除 (Buy-in + Fee) 並將狀態改為 `paid`。若餘額不足，按鈕 Disable
+   - 顯示按鈕: **「取消預約」** (點擊後取消席位/候補，刪除 `reservation` 記錄)
+   - **不顯示「已預約席位」文字**: 已預約狀態下，不顯示額外的描述文字
+   - 行為: 檢查俱樂部錢包餘額。若餘額充足，扣除 (Buy-in + Fee) 並將 `reservation.status` 改為 `confirmed`。若餘額不足，按鈕 Disable
 
 3. **已付款 (Paid)**:
-   - **App 端不可取消**: 一旦完成付款報名，用戶**無法**透過 App 自行取消或退款
+   - **App 端不可取消**: 一旦完成付款報名（`reservation.status = 'confirmed'`），用戶**無法**透過 App 自行取消或退款
    - 顯示提示: 顯示「已完成報名，如需異動請洽櫃檯」等提示字樣
+
+### 4.2.1 預約系統 (Reservation System)
+- **資料來源**: Supabase `reservation` 表
+- **預約創建**: 
+  - 當用戶點擊「預約席位」時，創建 `reservation` 記錄
+  - `status` 預設為 `'waiting'`
+  - `queue_position` 自動計算：查詢相同 `tournament_waitlist_id` 的最大 `queue_position`，新預約的 `queue_position = max + 1`（如果沒有現有預約，則為 1）
+  - `requested_at` 設為當前時間
+- **預約查詢**: 
+  - 根據 `tournament_waitlist_id` 查詢所有預約
+  - 按 `queue_position` 升序排列
+- **預約取消**: 
+  - 刪除對應的 `reservation` 記錄
+  - 其他用戶的 `queue_position` 不變（不自動調整）
 
 ### 4.3 賽事列表顯示
 - **卡片資訊**: 需清晰顯示起始籌碼 (Starting Chips) 與目前盲注結構
@@ -137,10 +151,37 @@ HyperPoker 是一個針對德州撲克玩家設計的移動端優先 (Mobile-Fir
   - `OPEN`: 開放報名 (包含延遲註冊期間)
   - `CLOSED`: 報名已完全截止 (無法預約)
   - **名稱**: 賽事名稱不應包含狀態文字 (如"已額滿")，純粹顯示名稱
+- **標籤排列順序**: 所有賽事卡片統一使用以下標籤順序：
+  1. **狀態標籤**: 報名中 / 已截買 / 已結束
+  2. **預約標籤**（如果有）: 已預約（黃色）/ 已付款（綠色）
+  3. **類型標籤**: 錦標賽 / 限時錦標賽 / 豪克系列賽等
+- **時間顯示格式**:
+  - **日期**: 月/日（例如：2/2），顯示在時間上方
+  - **時間**: 時:分（例如：21:14），顯示在日期下方
+  - **位置**: 卡片右上角，垂直排列，右對齊
+- **已預約賽事顯示**: 即使用戶已預約某個賽事，該賽事仍會出現在協會賽事列表中，並顯示「已預約」標籤和賽事狀態標籤
 
-### 4.4 賽事詳情與功能
+### 4.4 賽事列表篩選功能
+- **日期篩選**:
+  - 使用左右箭頭按鈕切換日期（今天、明天、昨天等）
+  - 顯示格式：`< 今天（週一） >` 或 `< 2/25（週三） >`
+  - 切換日期時不重置滾動位置
+- **金額篩選**:
+  - 動態生成篩選按鈕，根據當前日期篩選後的賽事金額
+  - 顯示實際金額（例如：$3,400、$6,600、$11,000）
+  - 金額按升序排列
+  - 切換日期時自動重置為「全部」
+
+### 4.5 賽事詳情與功能
 - **賽事時鐘**: 若賽事進行中，提供連結開啟即時賽事時鐘 (Tournament Clock)
 - **名單顯示**: 預約名單需區分 **「正選名單」** (名額內) 與 **「候補名單」** (名額外)，並標示候補順位
+- **已繳費名單**: 
+  - 顯示已開賽的賽事列表（從 `tournament` 表，根據 `from_waitlist_id` 篩選）
+  - 每個賽事顯示：名稱、開始時間（僅時:分）、參賽人數（current_players/max_players）
+  - 列表垂直排列，可垂直滾動
+- **預約按鈕狀態**:
+  - 未預約：顯示「預約席位」或「加入候補」（如果已額滿）
+  - 已預約：顯示「取消預約」按鈕，不顯示「已預約席位」文字
 
 ## 5. UI/UX 規範
 
@@ -167,6 +208,16 @@ HyperPoker 是一個針對德州撲克玩家設計的移動端優先 (Mobile-Fir
 - **按鈕狀態**: 當暱稱或手機號碼被修改時，「更新」按鈕變為綠色，更新成功後恢復原色
 - **載入狀態**: 使用 `Loader2` 圖示顯示載入中狀態
 - **狀態標籤**: 使用脈衝動畫 (`animate-pulse`) 強調需要用戶注意的狀態
+
+### 5.5 URL 路由系統
+- **路由結構**:
+  - `/` - 首頁（俱樂部列表）
+  - `/login` - 登入頁面
+  - `/club/:clubId` - 俱樂部賽事列表（支援直接 URL 訪問）
+  - `/profile` - 個人檔案
+  - `/stats` - 歷史戰績
+- **路由保護**: 未登入用戶可瀏覽俱樂部和賽事資訊（訪客模式），但無法進行預約或報名操作
+- **導航**: 使用 React Router DOM v7 進行客戶端路由管理
 
 ## 6. 資料結構摘要 (TypeScript Interfaces)
 
@@ -277,6 +328,30 @@ interface Registration {
 - `club.logo_url` → `Club.bannerUrl`
 - `club.location` → `Club.latitude`, `Club.longitude` (解析)
 
+#### tournament_waitlist 表 → Tournament
+- `tournament_waitlist.id` → `Tournament.id`
+- `tournament_waitlist.club_id` → `Tournament.clubId`
+- `tournament_waitlist.name` → `Tournament.name`
+- `tournament_waitlist.scheduled_start_time` → `Tournament.startTime`
+- `tournament_waitlist.buyin_amount + registration_fee` → `Tournament.buyIn`
+- `tournament_waitlist.registration_fee` → `Tournament.fee`
+- `tournament_waitlist.max_players` → `Tournament.maxCap`
+- 盲注結構從 `blind_structure` 表關聯獲取
+
+#### reservation 表 → Registration
+- `reservation.id` → `Registration.id`
+- `reservation.tournament_waitlist_id` → `Registration.tournamentId`
+- `reservation.member_id` → `Registration.userId`
+- `reservation.status` → `Registration.status` (映射: `waiting` → `reserved`, `confirmed` → `paid`)
+- `reservation.queue_position` → 候補順位
+- `reservation.requested_at` → `Registration.timestamp`
+
+#### transactions 表
+- 用於顯示會員卡中的交易記錄（存款、提款）
+- `transaction_type`: `deposit` (存款) / `withdrawal` (提款)
+- `amount`: 交易金額
+- `created_at`: 交易時間
+
 ## 7. 技術實作細節
 
 ### 7.1 環境變數
@@ -288,6 +363,10 @@ interface Registration {
 - **`services/supabaseAuth.ts`**: 用戶認證與資料管理
 - **`services/supabaseClub.ts`**: 俱樂部資料獲取
 - **`services/supabaseClubMember.ts`**: 會籍管理
+- **`services/supabaseTournament.ts`**: 賽事資料獲取（從 `tournament_waitlist` 表）
+- **`services/supabaseReservation.ts`**: 預約管理（創建、取消、查詢）
+- **`services/supabaseTournamentPaid.ts`**: 已繳費賽事資料獲取
+- **`services/supabaseTransaction.ts`**: 交易記錄管理
 - **`services/mockApi.ts`**: Mock API 服務（Supabase 備援）
 
 ### 7.3 資料同步策略

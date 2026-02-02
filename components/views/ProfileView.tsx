@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Camera, Upload, CheckCircle, LogOut, Smartphone, RefreshCw, AlertTriangle, Edit2, Save, MessageSquare, ChevronRight, ChevronDown, ChevronUp, Gift, Trophy, Coins } from 'lucide-react';
+import { Lock, Camera, Upload, CheckCircle, LogOut, Smartphone, RefreshCw, AlertTriangle, Edit2, Save, MessageSquare, ChevronRight, ChevronDown, ChevronUp, Gift, Trophy, Coins, ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Header } from '../ui/Header';
@@ -10,6 +10,8 @@ import { SEED_CLUBS, GAME_HISTORY } from '../../constants';
 import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
 import { THEME } from '../../theme';
+import { isSupabaseClub } from '../../services/mockApi';
+import { getTransactionsByMember, Transaction } from '../../services/supabaseTransaction';
 
 interface ProfileViewProps {
   user: User;
@@ -171,6 +173,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   
   // Membership Card Modal
   const [showMemberCard, setShowMemberCard] = useState<string | null>(null); // Store Club ID
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [expandedTransactions, setExpandedTransactions] = useState(false);
 
   // Check if nickname, mobile, or email has changed
   const nicknameChanged = nickname !== (user.nickname || '');
@@ -202,6 +207,41 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       };
       if(activeTab === 'club') fetchWallets();
   }, [activeTab, user.id]);
+
+  // Fetch transactions when membership card modal opens (only for Supabase clubs)
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!showMemberCard) {
+        setTransactions([]);
+        return;
+      }
+
+      // Only fetch for Supabase clubs
+      if (!isSupabaseClub(showMemberCard)) {
+        setTransactions([]);
+        return;
+      }
+
+      const memberId = parseInt(user.id);
+      if (isNaN(memberId)) {
+        setTransactions([]);
+        return;
+      }
+
+      setTransactionsLoading(true);
+      try {
+        const txns = await getTransactionsByMember(showMemberCard, memberId);
+        setTransactions(txns);
+      } catch (error: any) {
+        console.error('Failed to fetch transactions:', error);
+        setTransactions([]);
+      } finally {
+        setTransactionsLoading(false);
+      }
+    };
+
+    fetchTransactions();
+  }, [showMemberCard, user.id]);
 
   const handleSensitiveChange = (field: string, value: any) => {
     setSensitiveData(prev => ({ ...prev, [field]: value }));
@@ -806,6 +846,74 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                          </div>
                      )}
                  </div>
+
+                 {/* Transaction History Section - Only for Supabase clubs */}
+                 {isSupabaseClub(showMemberCard || '') && (
+                     <div className={`space-y-2 border-t ${THEME.border} pt-3`}>
+                         <button
+                             onClick={() => setExpandedTransactions(!expandedTransactions)}
+                             className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
+                         >
+                             <div className="flex items-center gap-2">
+                                 <ArrowDown size={16} className="text-green-400" />
+                                 <span className={`text-sm ${THEME.textPrimary} font-medium`}>預繳報名費紀錄</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                 {transactionsLoading ? (
+                                     <Loader2 size={14} className={`animate-spin ${THEME.textSecondary}`} />
+                                 ) : (
+                                     <span className={`text-xs ${THEME.textSecondary}`}>{transactions.length} 筆</span>
+                                 )}
+                                 {expandedTransactions ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
+                             </div>
+                         </button>
+                         {expandedTransactions && (
+                             <div className="pl-6 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                                 {transactionsLoading ? (
+                                     <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>載入中...</div>
+                                 ) : transactions.length === 0 ? (
+                                     <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>尚無交易記錄</div>
+                                 ) : (
+                                     transactions.map(txn => (
+                                         <div key={txn.id} className={`flex justify-between items-center p-2 rounded ${THEME.card} border ${THEME.border}`}>
+                                             <div className="flex items-center gap-2 flex-1">
+                                                 {txn.type === 'deposit' ? (
+                                                     <ArrowDown size={12} className="text-green-400" />
+                                                 ) : (
+                                                     <ArrowUp size={12} className="text-red-400" />
+                                                 )}
+                                                 <div className="flex-1">
+                                                     <div className={`text-xs ${THEME.textPrimary} font-medium`}>
+                                                         {txn.type === 'deposit' ? '儲值' : '提領'}
+                                                     </div>
+                                                     {txn.completed_at && (
+                                                         <div className={`text-[10px] ${THEME.textSecondary}`}>
+                                                             {new Date(txn.completed_at).toLocaleString('zh-TW', {
+                                                                 year: 'numeric',
+                                                                 month: '2-digit',
+                                                                 day: '2-digit',
+                                                                 hour: '2-digit',
+                                                                 minute: '2-digit'
+                                                             })}
+                                                         </div>
+                                                     )}
+                                                     {txn.description && (
+                                                         <div className={`text-[10px] ${THEME.textSecondary} mt-0.5`}>
+                                                             {txn.description}
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             </div>
+                                             <span className={`text-xs font-mono font-bold ${txn.type === 'deposit' ? 'text-green-400' : 'text-red-400'}`}>
+                                                 {txn.type === 'deposit' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString()}
+                                             </span>
+                                         </div>
+                                     ))
+                                 )}
+                             </div>
+                         )}
+                     </div>
+                 )}
              </div>
              
              {selectedClubInfo?.feedbackUrl && (
