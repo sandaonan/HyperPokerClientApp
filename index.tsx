@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { LogtoProvider } from '@logto/react';
 import App from './App';
+import { logtoConfig } from './config/logto';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,8 +13,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <LogtoProvider config={logtoConfig}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </LogtoProvider>
   </React.StrictMode>
 );

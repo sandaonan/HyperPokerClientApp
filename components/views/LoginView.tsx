@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
-import { LogIn, UserPlus, Loader2, Compass } from 'lucide-react';
+import { useLogto } from '@logto/react';
+import { LogIn, Loader2, Compass } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { mockApi } from '../../services/mockApi';
 import { User } from '../../types';
 import { THEME } from '../../theme';
+import { redirectUris } from '../../config/logto';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -13,49 +12,17 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLogin, onGuestAccess }) => {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const { signIn } = useLogto();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSubmit = async () => {
-    setError('');
-    
-    if (!username || !password) {
-        setError("請輸入帳號與密碼");
-        return;
-    }
-
-    if (mode === 'register') {
-        if (password !== confirmPassword) {
-            setError("兩次密碼不一致");
-            return;
-        }
-    }
-
+  const handleLogin = async () => {
     setLoading(true);
     try {
-        let user: User;
-        if (mode === 'login') {
-            user = await mockApi.login(username, password);
-        } else {
-            // Register without mobile initially
-            user = await mockApi.register(username, password);
-        }
-        onLogin(user);
-    } catch (err: any) {
-        setError(err.message || "操作失敗");
-    } finally {
-        setLoading(false);
+      await signIn(redirectUris.signIn);
+    } catch (error) {
+      console.error('Login error:', error);
+      setLoading(false);
     }
-  };
-
-  const toggleMode = () => {
-      setMode(mode === 'login' ? 'register' : 'login');
-      setError('');
   };
 
   return (
@@ -94,55 +61,32 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, onGuestAccess }) 
              <div className={`absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-brand-border to-transparent opacity-50`}></div>
              
              <h2 className={`text-lg font-medium ${THEME.textPrimary} text-center mb-6`}>
-                 {mode === 'login' ? '會員登入' : '註冊帳號'}
+                 會員登入
              </h2>
 
-             {error && (
-                 <div className="mb-4 bg-red-950/30 border border-red-900/50 text-red-400 p-3 rounded text-xs text-center flex items-center justify-center gap-2">
-                     <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                     {error}
-                 </div>
-             )}
-
              <div className="space-y-4">
-                <Input 
-                    placeholder="帳號" 
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                />
-                <Input 
-                    type="password"
-                    placeholder="密碼" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                />
-                
-                {mode === 'register' && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                        <Input 
-                            type="password"
-                            placeholder="再次確認密碼" 
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                        />
-                    </div>
-                )}
-
-                <Button fullWidth onClick={handleSubmit} disabled={loading} className="mt-2 h-11 text-base shadow-brand-green/10">
-                    {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : 
-                    mode === 'login' ? <LogIn className="mr-2" size={18} /> : <UserPlus className="mr-2" size={18} />
-                    }
-                    {mode === 'login' ? '登入' : '立即註冊'}
+                <Button fullWidth onClick={handleLogin} disabled={loading} className="mt-2 h-11 text-base shadow-brand-green/10">
+                    {loading ? (
+                      <>
+                        <Loader2 className="animate-spin mr-2" size={18} />
+                        跳轉中...
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="mr-2" size={18} />
+                        使用 Logto 登入
+                      </>
+                    )}
                 </Button>
-             </div>
 
-             <div className="pt-6 text-center">
-                 <button 
-                    onClick={toggleMode}
-                    className={`text-xs ${THEME.textSecondary} hover:${THEME.accent} transition-colors border-b border-transparent hover:border-brand-green pb-0.5`}
-                  >
-                    {mode === 'login' ? '還沒有帳號？點此註冊' : '已有帳號？返回登入'}
-                  </button>
+                <p className={`text-xs ${THEME.textSecondary} text-center pt-2`}>
+                  首次登入將自動建立帳號
+                </p>
+
+                <div className={`pt-4 border-t ${THEME.border} text-xs ${THEME.textSecondary} text-center space-y-1`}>
+                  <p>支援登入方式：</p>
+                  <p className="text-white/80">Google · LINE · 帳號密碼</p>
+                </div>
              </div>
         </div>
         

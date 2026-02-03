@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
-import { Home, User as UserIcon, Ticket, LogIn } from 'lucide-react';
+import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useLogto } from '@logto/react';
+import { Home, User as UserIcon, Ticket, LogIn, Loader2 } from 'lucide-react';
 import { LoginView } from './components/views/LoginView';
 import { HomeView } from './components/views/HomeView';
 import { TournamentView } from './components/views/TournamentView';
 import { ProfileView } from './components/views/ProfileView';
 import { StatsView } from './components/views/StatsView';
+import { CallbackView } from './components/views/CallbackView';
 import { User, Club } from './types';
-import { mockApi } from './services/mockApi';
+import { syncLogtoUserToLocalStorage, getCurrentUser, clearCurrentSession } from './services/userSync';
+import { redirectUris } from './config/logto';
 import { AlertProvider } from './contexts/AlertContext';
 import { THEME } from './theme';
-import { getAllClubsFromSupabase } from './services/supabaseClub';
 import { isSupabaseAvailable } from './lib/supabaseClient';
 import { SEED_CLUBS } from './constants';
 import { isSupabaseClub } from './services/mockApi';
@@ -110,44 +112,51 @@ const ClubRoute: React.FC<{ currentUser: User | null; isGuest: boolean }> = ({ c
 };
 
 const AppContent: React.FC = () => {
+  const { isAuthenticated, isLoading: isLogtoLoading, getIdTokenClaims, signOut } = useLogto();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Load user from session on mount
+  // Initialize user on mount or when authentication changes
   useEffect(() => {
-    const userId = localStorage.getItem('hp_session_user_id');
-    if (userId) {
-      // Try Supabase first, then fallback to localStorage
-      if (isSupabaseAvailable()) {
-        getUserById(userId).then(user => {
-          if (user) {
+    const initializeUser = async () => {
+      if (isLogtoLoading) return;
+
+      // Skip initialization on callback page
+      if (location.pathname === '/callback') {
+        setAuthChecked(true);
+        return;
+      }
+
+      if (isAuthenticated) {
+        try {
+          const claims = await getIdTokenClaims();
+          if (claims) {
+            const user = syncLogtoUserToLocalStorage(claims);
             setCurrentUser(user);
-          } else {
-            localStorage.removeItem('hp_session_user_id');
           }
-        }).catch(() => {
-          // Try localStorage fallback
-          const users: User[] = JSON.parse(localStorage.getItem('hp_users') || '[]');
-          const user = users.find(u => u.id === userId);
-          if (user) {
-            setCurrentUser(user);
-          } else {
-            localStorage.removeItem('hp_session_user_id');
-          }
-        });
+        } catch (error) {
+          console.error('Failed to sync user:', error);
+          clearCurrentSession();
+          setCurrentUser(null);
+        }
       } else {
-        // Fallback to localStorage
-        const users: User[] = JSON.parse(localStorage.getItem('hp_users') || '[]');
-        const user = users.find(u => u.id === userId);
-        if (user) {
-          setCurrentUser(user);
+        // Not authenticated - check for existing session
+        const existingUser = getCurrentUser();
+        if (existingUser) {
+          // User in localStorage but not authenticated - keep the user but they may need to re-auth
+          setCurrentUser(existingUser);
         } else {
-          localStorage.removeItem('hp_session_user_id');
+          setCurrentUser(null);
         }
       }
-    }
-  }, []);
+
+      setAuthChecked(true);
+    };
+
+    initializeUser();
+  }, [isAuthenticated, isLogtoLoading, getIdTokenClaims, location.pathname]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -159,14 +168,28 @@ const AppContent: React.FC = () => {
     navigate('/');
   };
 
-  const handleLogout = () => {
-    mockApi.logout();
+  const handleLogout = async () => {
+    clearCurrentSession();
     setCurrentUser(null);
+    try {
+      await signOut(redirectUris.signOut);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     navigate('/login');
   };
 
-  const isGuest = location.pathname !== '/login' && !currentUser;
+  const isGuest = location.pathname !== '/login' && location.pathname !== '/callback' && !currentUser;
   const currentPath = location.pathname;
+
+  // Show loading state while checking auth
+  if (!authChecked && isLogtoLoading) {
+    return (
+      <div className="min-h-screen bg-brand-black text-brand-white font-sans flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-brand-green animate-spin" />
+      </div>
+    );
+  }
 
   // Determine active view for bottom navigation
   const isHomeActive = currentPath === '/' || currentPath.startsWith('/club/');
@@ -184,12 +207,19 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-brand-black text-brand-white font-sans selection:bg-brand-green/30">
-      <main className={`mx-auto max-w-md min-h-screen relative ${currentPath !== '/login' ? 'p-4' : ''}`}>
+      <main className={`mx-auto max-w-md min-h-screen relative ${currentPath !== '/login' && currentPath !== '/callback' ? 'p-4' : ''}`}>
         <Routes>
           <Route path="/login" element={
             <LoginView 
               onLogin={handleLogin}
               onGuestAccess={handleGuestEnter}
+            />
+          } />
+          <Route path="/callback" element={
+            <CallbackView
+              onComplete={() => {
+                navigate('/');
+              }}
             />
           } />
           <Route path="/" element={
@@ -206,7 +236,7 @@ const AppContent: React.FC = () => {
           } />
           <Route path="/profile" element={
             <div className="relative min-h-[80vh]">
-              {isGuest && <GuestOverlay onLoginClick={handleLogout} />}
+              {isGuest && <GuestOverlay onLoginClick={() => navigate('/login')} />}
               <div className={isGuest ? 'blur-md pointer-events-none select-none opacity-40 fixed inset-0 top-20' : ''}>
                 <ProfileView 
                   user={currentUser || { 
@@ -224,7 +254,7 @@ const AppContent: React.FC = () => {
           } />
           <Route path="/my-games" element={
             <div className="relative min-h-[80vh]">
-              {isGuest && <GuestOverlay onLoginClick={handleLogout} />}
+              {isGuest && <GuestOverlay onLoginClick={() => navigate('/login')} />}
               <div className={isGuest ? 'blur-md pointer-events-none select-none opacity-40 fixed inset-0 top-20' : ''}>
                 <StatsView 
                   userId={currentUser?.id || 'guest'}
@@ -247,7 +277,7 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Bottom Navigation */}
-      {currentPath !== '/login' && (
+      {currentPath !== '/login' && currentPath !== '/callback' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-brand-dark/90 backdrop-blur-md border-t border-brand-border pb-safe">
           <div className="max-w-md mx-auto flex justify-around items-center h-16 px-6">
             <button 
