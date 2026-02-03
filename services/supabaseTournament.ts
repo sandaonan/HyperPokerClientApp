@@ -234,28 +234,48 @@ export async function getTournamentsFromSupabase(
       (blindStructures || []).map(bs => [bs.id, bs])
     );
     
-    // 3. Fetch tournament player counts for reserved and confirmed
+    // 3. Fetch reserved players from reservation table (waiting status)
+    const tournamentWaitlistIds = tournaments.map(t => t.from_waitlist_id).filter(id => id !== null);
+    const { data: reservations, error: reservationsError } = await supabase
+      .from('reservation')
+      .select('tournament_waitlist_id, status')
+      .in('tournament_waitlist_id', tournamentWaitlistIds)
+      .eq('status', 'waiting'); // Only count waiting reservations
+    
+    if (reservationsError) {
+      console.warn(`Failed to fetch reservations: ${reservationsError.message}`);
+    }
+    
+    // 4. Fetch confirmed/paid players from tournament_player table (active status)
+    // Note: tournament_player_status enum only has: "active", "eliminated", "cancelled"
     const tournamentIds = tournaments.map(t => t.id);
     const { data: tournamentPlayers, error: playersError } = await supabase
       .from('tournament_player')
       .select('tournament_id, status')
       .in('tournament_id', tournamentIds)
-      .in('status', ['pending_review', 'confirmed']); // Only count reserved and confirmed
+      .eq('status', 'active'); // Only count active players (paid players are active)
     
     if (playersError) {
       console.warn(`Failed to fetch tournament players: ${playersError.message}`);
     }
     
-    // Count reserved and confirmed players per tournament
+    // Count reserved players per tournament (via waitlist_id mapping)
     const reservedCountMap = new Map<number, number>();
-    const confirmedCountMap = new Map<number, number>();
+    const tournamentWaitlistMap = new Map(
+      tournaments.map(t => [t.from_waitlist_id, t.id])
+    );
     
-    (tournamentPlayers || []).forEach(tp => {
-      if (tp.status === 'pending_review') {
-        reservedCountMap.set(tp.tournament_id, (reservedCountMap.get(tp.tournament_id) || 0) + 1);
-      } else if (tp.status === 'confirmed') {
-        confirmedCountMap.set(tp.tournament_id, (confirmedCountMap.get(tp.tournament_id) || 0) + 1);
+    (reservations || []).forEach(res => {
+      const tournamentId = tournamentWaitlistMap.get(res.tournament_waitlist_id);
+      if (tournamentId) {
+        reservedCountMap.set(tournamentId, (reservedCountMap.get(tournamentId) || 0) + 1);
       }
+    });
+    
+    // Count confirmed/paid players per tournament
+    const confirmedCountMap = new Map<number, number>();
+    (tournamentPlayers || []).forEach(tp => {
+      confirmedCountMap.set(tp.tournament_id, (confirmedCountMap.get(tp.tournament_id) || 0) + 1);
     });
     
     // 4. Convert to frontend Tournament format
@@ -337,19 +357,36 @@ export async function getTournamentByIdFromSupabase(
       return null;
     }
     
-    // Fetch player counts
+    // Fetch reserved players from reservation table (waiting status)
+    const tournamentWaitlistId = tournament.from_waitlist_id;
+    let reservedCount = 0;
+    if (tournamentWaitlistId) {
+      const { data: reservations, error: reservationsError } = await supabase
+        .from('reservation')
+        .select('id, status')
+        .eq('tournament_waitlist_id', tournamentWaitlistId)
+        .eq('status', 'waiting'); // Only count waiting reservations
+      
+      if (reservationsError) {
+        console.warn(`Failed to fetch reservations: ${reservationsError.message}`);
+      } else {
+        reservedCount = (reservations || []).length;
+      }
+    }
+    
+    // Fetch confirmed/paid players from tournament_player table (active status)
+    // Note: tournament_player_status enum only has: "active", "eliminated", "cancelled"
     const { data: tournamentPlayers, error: playersError } = await supabase
       .from('tournament_player')
       .select('status')
       .eq('tournament_id', tournamentIdNum)
-      .in('status', ['pending_review', 'confirmed']);
+      .eq('status', 'active'); // Only count active players (paid players are active)
     
     if (playersError) {
       console.warn(`Failed to fetch tournament players: ${playersError.message}`);
     }
     
-    const reservedCount = (tournamentPlayers || []).filter(tp => tp.status === 'pending_review').length;
-    const confirmedCount = (tournamentPlayers || []).filter(tp => tp.status === 'confirmed').length;
+    const confirmedCount = (tournamentPlayers || []).length;
     
     return tournamentRowToTournament(
       tournament,

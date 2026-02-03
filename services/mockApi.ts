@@ -4,6 +4,7 @@ import { SEED_CLUBS, SEED_TOURNAMENTS } from '../constants';
 import { registerUser, loginUser, getUserById, updateUserProfile as updateSupabaseUser } from './supabaseAuth';
 import { isSupabaseAvailable } from '../lib/supabaseClient';
 import { joinClubInSupabase, getUserClubMemberships } from './supabaseClubMember';
+import { getTournamentWaitlistsFromSupabase } from './supabaseTournamentWaitlist';
 
 // Keys for LocalStorage
 const STORAGE_KEYS = {
@@ -519,7 +520,6 @@ class MockApiService {
       }
       
       try {
-        const { getTournamentWaitlistsFromSupabase } = await import('./supabaseTournamentWaitlist');
         const supabaseTournaments = await getTournamentWaitlistsFromSupabase(clubId);
         console.log(`[getTournaments] Fetched ${supabaseTournaments.length} tournament waitlists from Supabase for club ${clubId}`);
         return supabaseTournaments; // Return even if empty - no fallback to mock
@@ -556,6 +556,63 @@ class MockApiService {
 
   async getMyRegistrations(userId: string): Promise<{registration: Registration, tournament: Tournament}[]> {
     await delay(300);
+    
+    // Check if user is from Supabase (numeric ID)
+    const memberId = parseInt(userId);
+    const isSupabaseUser = !isNaN(memberId) && isSupabaseAvailable();
+    
+    if (isSupabaseUser) {
+      try {
+        const { getReservationsByMember } = await import('./supabaseReservation');
+        const { getTournamentWaitlistsFromSupabase } = await import('./supabaseTournamentWaitlist');
+        
+        // Get all reservations for this member
+        const reservations = await getReservationsByMember(memberId);
+        
+        if (reservations.length === 0) {
+          return [];
+        }
+        
+        // Get all clubs that have tournaments (we need to fetch tournaments from each club)
+        // For now, we'll fetch from all clubs and filter by reservation club_id
+        const clubIds = Array.from(new Set(reservations.map(r => r.club_id)));
+        const allTournaments: Tournament[] = [];
+        
+        for (const clubId of clubIds) {
+          try {
+            const tournaments = await getTournamentWaitlistsFromSupabase(clubId.toString());
+            allTournaments.push(...tournaments);
+          } catch (error) {
+            console.error(`[getMyRegistrations] Failed to fetch tournaments for club ${clubId}:`, error);
+          }
+        }
+        
+        // Map reservations to Registration format
+        const result: {registration: Registration, tournament: Tournament}[] = [];
+        
+        for (const reservation of reservations) {
+          const tournament = allTournaments.find(t => t.id === reservation.tournament_waitlist_id.toString());
+          if (tournament) {
+            const reg: Registration = {
+              id: `reg-${reservation.id}`,
+              tournamentId: reservation.tournament_waitlist_id.toString(),
+              userId: userId,
+              status: reservation.status === 'confirmed' ? 'paid' : 'reserved',
+              timestamp: reservation.requested_at,
+              userLocalId: reservation.member_id.toString(),
+            };
+            result.push({ registration: reg, tournament });
+          }
+        }
+        
+        return result;
+      } catch (error: any) {
+        console.error('[getMyRegistrations] Failed to fetch from Supabase:', error);
+        return []; // Return empty array on error
+      }
+    }
+    
+    // Mock user: Use localStorage
     const registrations: Registration[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || '[]');
     const myRegs = registrations.filter(r => r.userId === userId && r.status !== 'cancelled');
     

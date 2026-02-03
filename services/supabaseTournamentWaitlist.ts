@@ -194,12 +194,12 @@ export async function getTournamentWaitlistsFromSupabase(
   }
   
   try {
-    // 1. Fetch tournament_waitlist for this club (excluding completed and cancelled)
+    // 1. Fetch tournament_waitlist for this club (only registration status, not scheduled)
     const { data: tournamentWaitlists, error: waitlistError } = await supabase
       .from('tournament_waitlist')
       .select('*')
       .eq('club_id', clubIdNum)
-      .in('status', ['scheduled', 'registration']) // Only active tournaments
+      .eq('status', 'registration') // Only show tournaments open for registration
       .order('scheduled_start_time', { ascending: true });
     
     if (waitlistError) {

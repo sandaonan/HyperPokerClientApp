@@ -352,31 +352,25 @@ export type Database = {
       }
       payout_model: {
         Row: {
+          allocations: Json | null
           club_id: number | null
           description: string | null
           id: number
-          is_default: boolean
           name: string | null
-          payout_rules: Json | null
-          ranges: number | null
         }
         Insert: {
+          allocations?: Json | null
           club_id?: number | null
           description?: string | null
           id?: number
-          is_default?: boolean
           name?: string | null
-          payout_rules?: Json | null
-          ranges?: number | null
         }
         Update: {
+          allocations?: Json | null
           club_id?: number | null
           description?: string | null
           id?: number
-          is_default?: boolean
           name?: string | null
-          payout_rules?: Json | null
-          ranges?: number | null
         }
         Relationships: [
           {
@@ -384,6 +378,44 @@ export type Database = {
             columns: ["club_id"]
             isOneToOne: false
             referencedRelation: "club"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string | null
+          endpoint: string
+          id: number
+          member_id: number
+          p256dh: string
+          updated_at: string | null
+        }
+        Insert: {
+          auth: string
+          created_at?: string | null
+          endpoint: string
+          id?: number
+          member_id: number
+          p256dh: string
+          updated_at?: string | null
+        }
+        Update: {
+          auth?: string
+          created_at?: string | null
+          endpoint?: string
+          id?: number
+          member_id?: number
+          p256dh?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "member"
             referencedColumns: ["id"]
           },
         ]
@@ -458,6 +490,65 @@ export type Database = {
           },
         ]
       }
+      roles: {
+        Row: {
+          access_clocks_tables: Database["public"]["Enums"]["access_level"]
+          access_members: Database["public"]["Enums"]["access_level"]
+          access_performance: Database["public"]["Enums"]["access_level"]
+          access_settings: Database["public"]["Enums"]["access_level"]
+          access_structures: Database["public"]["Enums"]["access_level"]
+          access_tables: Database["public"]["Enums"]["access_level"]
+          access_tournaments: Database["public"]["Enums"]["access_level"]
+          club_id: number
+          created_at: string | null
+          description: string | null
+          id: number
+          is_system: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_clocks_tables?: Database["public"]["Enums"]["access_level"]
+          access_members?: Database["public"]["Enums"]["access_level"]
+          access_performance?: Database["public"]["Enums"]["access_level"]
+          access_settings?: Database["public"]["Enums"]["access_level"]
+          access_structures?: Database["public"]["Enums"]["access_level"]
+          access_tables?: Database["public"]["Enums"]["access_level"]
+          access_tournaments?: Database["public"]["Enums"]["access_level"]
+          club_id: number
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_system?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_clocks_tables?: Database["public"]["Enums"]["access_level"]
+          access_members?: Database["public"]["Enums"]["access_level"]
+          access_performance?: Database["public"]["Enums"]["access_level"]
+          access_settings?: Database["public"]["Enums"]["access_level"]
+          access_structures?: Database["public"]["Enums"]["access_level"]
+          access_tables?: Database["public"]["Enums"]["access_level"]
+          access_tournaments?: Database["public"]["Enums"]["access_level"]
+          club_id?: number
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "club"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signature_tokens: {
         Row: {
           created_at: string
@@ -513,9 +604,11 @@ export type Database = {
           id: number
           last_login_at: string | null
           member_id: number
+          name: string | null
           notes: string | null
           password_hash: string
           role: Database["public"]["Enums"]["staff_role"]
+          role_id: number | null
           updated_at: string
         }
         Insert: {
@@ -525,9 +618,11 @@ export type Database = {
           id?: number
           last_login_at?: string | null
           member_id: number
+          name?: string | null
           notes?: string | null
           password_hash: string
           role: Database["public"]["Enums"]["staff_role"]
+          role_id?: number | null
           updated_at?: string
         }
         Update: {
@@ -537,9 +632,11 @@ export type Database = {
           id?: number
           last_login_at?: string | null
           member_id?: number
+          name?: string | null
           notes?: string | null
           password_hash?: string
           role?: Database["public"]["Enums"]["staff_role"]
+          role_id?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -555,6 +652,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
@@ -626,7 +730,7 @@ export type Database = {
       }
       tournament: {
         Row: {
-          blind_structure_id: number
+          blind_structure_id: number | null
           blind_structure_snapshot: Json | null
           buyin_amount: number
           club_id: number
@@ -642,7 +746,7 @@ export type Database = {
           min_players: number
           name: string
           paused_at: string | null
-          payout_model_id: number
+          payout_model_id: number | null
           payout_model_snapshot: Json | null
           prize_pool: number | null
           prize_structure: Json | null
@@ -657,7 +761,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          blind_structure_id: number
+          blind_structure_id?: number | null
           blind_structure_snapshot?: Json | null
           buyin_amount: number
           club_id: number
@@ -673,7 +777,7 @@ export type Database = {
           min_players: number
           name: string
           paused_at?: string | null
-          payout_model_id: number
+          payout_model_id?: number | null
           payout_model_snapshot?: Json | null
           prize_pool?: number | null
           prize_structure?: Json | null
@@ -690,7 +794,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          blind_structure_id?: number
+          blind_structure_id?: number | null
           blind_structure_snapshot?: Json | null
           buyin_amount?: number
           club_id?: number
@@ -706,7 +810,7 @@ export type Database = {
           min_players?: number
           name?: string
           paused_at?: string | null
-          payout_model_id?: number
+          payout_model_id?: number | null
           payout_model_snapshot?: Json | null
           prize_pool?: number | null
           prize_structure?: Json | null
@@ -894,7 +998,7 @@ export type Database = {
       }
       tournament_waitlist: {
         Row: {
-          blind_structure_id: number
+          blind_structure_id: number | null
           buyin_amount: number
           club_id: number
           created_at: string
@@ -907,7 +1011,7 @@ export type Database = {
           min_players: number
           name: string | null
           password: string | null
-          payout_model_id: number
+          payout_model_id: number | null
           ranking_method: Database["public"]["Enums"]["ranking_method"] | null
           registration_end_time: string | null
           registration_fee: number
@@ -918,7 +1022,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          blind_structure_id: number
+          blind_structure_id?: number | null
           buyin_amount: number
           club_id: number
           created_at?: string
@@ -931,7 +1035,7 @@ export type Database = {
           min_players?: number
           name?: string | null
           password?: string | null
-          payout_model_id: number
+          payout_model_id?: number | null
           ranking_method?: Database["public"]["Enums"]["ranking_method"] | null
           registration_end_time?: string | null
           registration_fee?: number
@@ -942,7 +1046,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          blind_structure_id?: number
+          blind_structure_id?: number | null
           buyin_amount?: number
           club_id?: number
           created_at?: string
@@ -955,7 +1059,7 @@ export type Database = {
           min_players?: number
           name?: string | null
           password?: string | null
-          payout_model_id?: number
+          payout_model_id?: number | null
           ranking_method?: Database["public"]["Enums"]["ranking_method"] | null
           registration_end_time?: string | null
           registration_fee?: number
@@ -1060,6 +1164,7 @@ export type Database = {
       cleanup_expired_signature_tokens: { Args: never; Returns: number }
     }
     Enums: {
+      access_level: "none" | "view" | "edit"
       audit_action_type:
         | "create"
         | "update"
@@ -1112,12 +1217,7 @@ export type Database = {
         | "paid"
         | "bubble"
         | "eliminated"
-      tournament_player_status:
-        | "pending_review"
-        | "confirmed"
-        | "active"
-        | "eliminated"
-        | "cancelled"
+      tournament_player_status: "active" | "eliminated" | "cancelled"
       tournament_status:
         | "scheduled"
         | "registration"
@@ -1274,6 +1374,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      access_level: ["none", "view", "edit"],
       audit_action_type: [
         "create",
         "update",
@@ -1330,13 +1431,7 @@ export const Constants = {
         "bubble",
         "eliminated",
       ],
-      tournament_player_status: [
-        "pending_review",
-        "confirmed",
-        "active",
-        "eliminated",
-        "cancelled",
-      ],
+      tournament_player_status: ["active", "eliminated", "cancelled"],
       tournament_status: [
         "scheduled",
         "registration",

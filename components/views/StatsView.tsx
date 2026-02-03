@@ -1,15 +1,25 @@
 
-import React, { useState, useEffect } from 'react';
-import { Ticket, History, Loader2, Store, Clock, Filter, Trophy, Coins, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Ticket, History, Loader2, Store, Clock, Filter, Trophy, Coins, Check, ChevronDown, ChevronUp, Bell, BellOff } from 'lucide-react';
 import { GAME_HISTORY, SEED_CLUBS, SEED_TOURNAMENTS } from '../../constants';
 import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 import { Header } from '../ui/Header';
+import { Switch } from '../ui/Switch';
 import { TournamentDetailModal } from './TournamentDetailModal';
 import { Tournament, Registration, GameRecord } from '../../types';
 import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
 import { THEME } from '../../theme';
+import {
+  getNotificationPermission,
+  isPushNotificationSupported,
+  registerServiceWorker,
+  requestNotificationPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+  hasPushSubscriptionInDatabase,
+} from '../../services/pushNotification';
 
 interface StatsViewProps {
   userId: string;
@@ -37,6 +47,123 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
   // Filter State
   const [selectedClubFilter, setSelectedClubFilter] = useState<string>('All');
   const uniqueClubs = ['All', ...new Set(GAME_HISTORY.map(g => g.clubName))];
+  
+  // Push notification state
+  const [pushSupported, setPushSupported] = useState<boolean>(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
+  const [pushEnabled, setPushEnabled] = useState<boolean>(false);
+  const [isToggling, setIsToggling] = useState<boolean>(false);
+  
+  // Use ref to track if user manually closed notifications (prevent useEffect from overriding)
+  const userManuallyClosedRef = useRef<boolean>(false);
+  
+  // Push notification status - check both permission and actual subscription in database
+  useEffect(() => {
+      // Skip check if user manually closed (wait for next userId change or page refresh)
+      if (userManuallyClosedRef.current) {
+          return;
+      }
+      
+      const checkPushStatus = async () => {
+          const supported = isPushNotificationSupported();
+          setPushSupported(supported);
+          const permission = getNotificationPermission();
+          setPushPermission(permission);
+          
+          // Check if user actually has a subscription in database
+          if (supported && permission === 'granted' && userId && userId !== 'guest') {
+              try {
+                  const memberId = parseInt(userId);
+                  if (!isNaN(memberId)) {
+                      const hasSubscription = await hasPushSubscriptionInDatabase(memberId);
+                      setPushEnabled(hasSubscription);
+                  } else {
+                      setPushEnabled(false);
+                  }
+              } catch (error) {
+                  console.error('[StatsView] Error checking push subscription:', error);
+                  setPushEnabled(false);
+              }
+          } else {
+              setPushEnabled(false);
+          }
+      };
+      
+      checkPushStatus();
+  }, [userId]);
+  
+  const handleTogglePush = async (checked: boolean) => {
+      if (isToggling) return; // Prevent multiple clicks
+      
+      if (!pushSupported) {
+          setPushEnabled(false);
+          return;
+      }
+
+      if (!userId || userId === 'guest') {
+          setPushEnabled(false);
+          return;
+      }
+
+      setIsToggling(true);
+
+      try {
+          const memberId = parseInt(userId);
+          if (isNaN(memberId)) {
+              setPushEnabled(false);
+              setIsToggling(false);
+              return;
+          }
+
+          const registration = await registerServiceWorker();
+          if (!registration) {
+              setPushEnabled(false);
+              setIsToggling(false);
+              return;
+          }
+
+          const currentPermission = getNotificationPermission();
+          setPushPermission(currentPermission);
+
+          if (currentPermission !== 'granted') {
+              const permission = await requestNotificationPermission();
+              setPushPermission(permission);
+
+              if (permission !== 'granted') {
+                  setPushEnabled(false);
+                  setIsToggling(false);
+                  return;
+              }
+          }
+
+          if (checked) {
+              // Subscribe to push notifications
+              userManuallyClosedRef.current = false;
+              await subscribeToPush(memberId, registration);
+              const hasSubscription = await hasPushSubscriptionInDatabase(memberId);
+              setPushEnabled(hasSubscription);
+          } else {
+              // Unsubscribe from push notifications
+              userManuallyClosedRef.current = true;
+              setPushEnabled(false); // Optimistically update UI
+              await unsubscribeFromPush(memberId, registration);
+              const permission = getNotificationPermission();
+              setPushPermission(permission);
+          }
+      } catch (e: any) {
+          console.error('[StatsView] Error toggling push:', e);
+          // Revert state on error
+          if (checked) {
+              setPushEnabled(false);
+              userManuallyClosedRef.current = false;
+          } else {
+              setPushEnabled(true);
+              userManuallyClosedRef.current = false;
+          }
+      } finally {
+          setIsToggling(false);
+      }
+  };
 
   const loadMyGames = async () => {
       setLoading(true);
@@ -185,6 +312,32 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       
       <div>
         <h2 className={`text-2xl font-bold ${THEME.textPrimary} mb-6`}>我的賽事</h2>
+        
+        {/* Notification Settings - Simple Switch */}
+        <Card className={`mb-4 ${THEME.card} border ${THEME.border}`}>
+            <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${pushEnabled ? 'bg-brand-green/20 border border-brand-green/30' : `${THEME.cardHover} border ${THEME.border}`}`}>
+                        {pushEnabled ? (
+                            <Bell size={16} className={THEME.accent} />
+                        ) : (
+                            <BellOff size={16} className={THEME.textSecondary} />
+                        )}
+                    </div>
+                    <div className="min-w-0 flex-1 flex items-center gap-2">
+                        <span className={`text-sm font-bold ${THEME.textPrimary} whitespace-nowrap`}>推播通知設定</span>
+                        <span className={`text-xs ${THEME.textSecondary} whitespace-nowrap`}>
+                            {pushEnabled ? '已啟用' : '已停用'}
+                        </span>
+                    </div>
+                </div>
+                <Switch
+                    checked={pushEnabled}
+                    onCheckedChange={handleTogglePush}
+                    disabled={isToggling || !pushSupported || !userId || userId === 'guest'}
+                />
+            </div>
+        </Card>
         
         {/* Active / Registered Games Section */}
         <div className="mb-10">
@@ -397,6 +550,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
         onRegister={() => {}} 
         onCancel={() => {}}
       />
+      
     </div>
   );
 };

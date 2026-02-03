@@ -10,6 +10,7 @@ import { useAlert } from '../../contexts/AlertContext';
 import { THEME } from '../../theme';
 import { isSupabaseClub } from '../../services/mockApi';
 import { getPaidPlayersByWaitlistId, TournamentPaidData } from '../../services/supabaseTournamentPaid';
+import { supabase, isSupabaseAvailable } from '../../lib/supabaseClient';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -36,6 +37,9 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   // State for paid tournaments (from tournament table)
   const [paidTournaments, setPaidTournaments] = useState<TournamentPaidData[]>([]);
   const [paidTournamentsLoading, setPaidTournamentsLoading] = useState(false);
+  // Loading state for reservation actions
+  const [isReserving, setIsReserving] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Mock paid tournaments for Hyper 協會 (c-1) - for demo purposes
   const getMockPaidTournaments = (tournamentId: string): TournamentPaidData[] => {
@@ -119,6 +123,78 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
       }
   }, [tournament]);
 
+  // Live updates while modal is open (Supabase clubs):
+  // - Realtime subscription to reservation changes for this tournament_waitlist_id
+  // - Fallback polling to keep UI fresh even if realtime isn't enabled
+  useEffect(() => {
+      if (!tournament) return;
+
+      if (!isSupabaseClub(tournament.clubId)) return;
+      if (!isSupabaseAvailable() || !supabase) return;
+
+      const tournamentWaitlistId = parseInt(tournament.id);
+      const clubId = parseInt(tournament.clubId);
+      if (isNaN(tournamentWaitlistId) || isNaN(clubId)) return;
+
+      let isCancelled = false;
+
+      const refreshLists = async () => {
+          try {
+              const regs = await mockApi.getTournamentRegistrations(tournament.id);
+              if (!isCancelled) setPlayerList(regs);
+          } catch (e) {
+              // Non-fatal: keep existing list
+              console.warn('[TournamentDetailModal] Failed to refresh registrations:', e);
+          }
+
+          try {
+              setPaidTournamentsLoading(true);
+              const data = await getPaidPlayersByWaitlistId(tournamentWaitlistId, clubId);
+              if (!isCancelled) setPaidTournaments(data);
+          } catch (e) {
+              console.warn('[TournamentDetailModal] Failed to refresh paid tournaments:', e);
+              if (!isCancelled) setPaidTournaments([]);
+          } finally {
+              if (!isCancelled) setPaidTournamentsLoading(false);
+          }
+      };
+
+      // Initial refresh on open
+      refreshLists();
+
+      const channel = supabase
+        .channel(`tw-${tournamentWaitlistId}-reservations`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'reservation',
+            filter: `tournament_waitlist_id=eq.${tournamentWaitlistId}`,
+          },
+          () => {
+            // Reservation created/updated/cancelled -> refresh list
+            refreshLists();
+          }
+        )
+        .subscribe();
+
+      // Fallback polling (lightweight) for resilience
+      const intervalId = window.setInterval(() => {
+          refreshLists();
+      }, 10000);
+
+      return () => {
+          isCancelled = true;
+          window.clearInterval(intervalId);
+          try {
+              supabase.removeChannel(channel);
+          } catch (e) {
+              // ignore cleanup errors
+          }
+      };
+  }, [tournament]);
+
   if (!tournament) return null;
 
   const totalCost = tournament.buyIn + tournament.fee;
@@ -163,16 +239,33 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
               "加入候補名單",
               "目前賽事名額已滿。您確定要加入候補名單嗎？\n\n若有名額釋出，將依照預約順序遞補。"
           );
-          if(confirmed) onRegister('reserve');
+          if(confirmed) {
+              setIsReserving(true);
+              try {
+                  await onRegister('reserve');
+              } finally {
+                  setIsReserving(false);
+              }
+          }
       } else {
-          onRegister('reserve');
+          setIsReserving(true);
+          try {
+              await onRegister('reserve');
+          } finally {
+              setIsReserving(false);
+          }
       }
   };
 
   const handleCancelClick = async (e: React.MouseEvent) => {
      e.preventDefault();
      e.stopPropagation();
-     onCancel();
+     setIsCancelling(true);
+     try {
+         await onCancel();
+     } finally {
+         setIsCancelling(false);
+     }
   };
 
   // Rule Parsing
@@ -427,10 +520,18 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                 type="button" 
                                 fullWidth 
                                 variant="outline" 
-                                onClick={handleCancelClick} 
-                                className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500"
+                                onClick={handleCancelClick}
+                                disabled={isCancelling}
+                                className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                取消預約
+                                {isCancelling ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <Hourglass size={14} className="animate-spin" />
+                                        取消中...
+                                    </span>
+                                ) : (
+                                    '取消預約'
+                                )}
                             </Button>
                         ) : (
                             <div className={`flex items-center justify-center gap-2 py-2 text-brand-green text-sm font-bold`}>
@@ -446,17 +547,44 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                  <Lock size={14} /> 報名已截止
                              </div>
                          ) : userHasReservation ? (
-                             // User already has reservation - show status instead of button
-                             <div className={`text-center py-2 px-2 ${THEME.card} rounded-lg border ${THEME.border}`}>
-                                 <p className={`${THEME.textPrimary} text-sm font-bold mb-0.5`}>已預約席位</p>
-                                 <p className={`text-[10px] ${THEME.textSecondary} opacity-75`}>請於開賽前至櫃檯報到繳費</p>
-                             </div>
+                             // User already has reservation - show cancel button
+                             <Button 
+                                 type="button" 
+                                 fullWidth 
+                                 variant="outline" 
+                                 onClick={handleCancelClick}
+                                 disabled={isCancelling}
+                                 className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                                 {isCancelling ? (
+                                     <span className="flex items-center justify-center gap-2">
+                                         <Hourglass size={14} className="animate-spin" />
+                                         取消中...
+                                     </span>
+                                 ) : (
+                                     '取消預約'
+                                 )}
+                             </Button>
                          ) : (
                             <>
-                                <Button type="button" fullWidth variant="secondary" onClick={handleReserveClick} className="h-10 border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10">
-                                    <span className="text-sm font-bold">
-                                        {isFull ? "加入候補 (Join Waitlist)" : "預約席位"}
-                                    </span>
+                                <Button 
+                                    type="button" 
+                                    fullWidth 
+                                    variant="secondary" 
+                                    onClick={handleReserveClick}
+                                    disabled={isReserving}
+                                    className="h-10 border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isReserving ? (
+                                        <span className="flex items-center justify-center gap-2 text-sm font-bold">
+                                            <Hourglass size={14} className="animate-spin" />
+                                            預約中...
+                                        </span>
+                                    ) : (
+                                        <span className="text-sm font-bold">
+                                            {isFull ? "加入候補 (Join Waitlist)" : "預約席位"}
+                                        </span>
+                                    )}
                                 </Button>
                                 {isFull && <div className={`text-center text-[10px] ${THEME.textSecondary}`}>* 目前名額已滿，您將被列入候補名單。</div>}
                             </>
@@ -499,17 +627,19 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     {(() => {
                        let accumulatedMinutes = 0; // Track accumulated game time (excluding breaks)
                        let totalTime = 0; // Track total time including breaks for cutoff calculation
+                       let breakIndex = 0; // Track break index for unique keys
                        
-                       return tournament.structure?.map((level) => {
+                       return tournament.structure?.map((level, index) => {
                           // Handle break entries differently - full-width separator row like cut-off
                           if (level.isBreak) {
                              const breakDuration = level.duration || level.breakDuration || 0;
                              totalTime += breakDuration; // Break time counts for cutoff calculation
                              const breakTime = new Date(startTimeObj.getTime() + (totalTime * 60000));
                              const breakTimeStr = breakTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                             const uniqueBreakKey = `break-${index}-${breakIndex++}`; // Use index and breakIndex for unique key
                              
                              return (
-                                 <React.Fragment key={`break-${level.level}`}>
+                                 <React.Fragment key={uniqueBreakKey}>
                                      {/* Break separator row - full width like cut-off but different color, more subtle */}
                                      <tr className="bg-blue-500/5 border-t border-b border-blue-500/20">
                                         <td colSpan={4} className="p-2 text-center text-xs text-blue-400/80 font-medium">

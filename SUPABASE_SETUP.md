@@ -11,11 +11,14 @@
 在项目根目录创建 `.env.local` 文件（如果还没有）：
 
 ```env
-VITE_SUPABASE_URL=https://nxzdhptspqwuzhgfsxmu.supabase.co
-VITE_SUPABASE_KEY=sb_publishable_O_LihLc-dnnJTmdSEoZNrQ_RJEf6ay7
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_KEY=your_supabase_anon_key
 ```
 
-**注意**：如果未设置环境变量，代码会使用默认值（硬编码在 `lib/supabaseClient.ts` 中）。
+**重要**：
+- `.env.local` 文件已添加到 `.gitignore`，不会被提交到 Git
+- 所有 Supabase key 必须从 `.env.local` 读取，代码中不再有硬编码的 fallback values
+- 请从 Supabase Dashboard > Project Settings > API 获取你的项目 URL 和 anon key
 
 ## 文件结构
 

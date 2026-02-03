@@ -89,6 +89,28 @@ export async function createReservation(
     throw new Error('建立預約失敗：無法創建預約記錄');
   }
 
+  // Trigger push notification for reservation created
+  try {
+    // Get tournament name for notification
+    const { data: tournamentData } = await supabase
+      .from('tournament_waitlist')
+      .select('name, scheduled_start_time')
+      .eq('id', tournamentWaitlistId)
+      .single();
+
+    const { sendPushNotification } = await import('./pushNotificationTrigger');
+    await sendPushNotification({
+      memberId,
+      notificationType: 'reservation_created',
+      tournamentId: tournamentWaitlistId,
+      tournamentName: tournamentData?.name || '賽事',
+      startTime: tournamentData?.scheduled_start_time
+    });
+  } catch (error) {
+    // Don't fail reservation creation if notification fails
+    console.error('[createReservation] Failed to send push notification:', error);
+  }
+
   return newReservation;
 }
 
@@ -105,10 +127,10 @@ export async function cancelReservation(
     throw new Error('Supabase is not configured');
   }
 
-  // Verify the reservation belongs to this member
+  // Verify the reservation belongs to this member and get queue_position
   const { data: reservation, error: fetchError } = await supabase
     .from('reservation')
-    .select('id, member_id, status')
+    .select('id, member_id, status, tournament_waitlist_id, queue_position')
     .eq('id', reservationId)
     .eq('member_id', memberId)
     .single();
@@ -122,12 +144,16 @@ export async function cancelReservation(
     throw new Error('此預約無法取消');
   }
 
-  // Update reservation status to 'cancelled'
+  const cancelledQueuePosition = reservation.queue_position;
+  const tournamentWaitlistId = reservation.tournament_waitlist_id;
+
+  // Update reservation status to 'cancelled' (preserve history)
   const { error: updateError } = await supabase
     .from('reservation')
     .update({
       status: 'cancelled',
       cancelled_at: new Date().toISOString(),
+      queue_position: null, // Clear queue_position since it's cancelled
     })
     .eq('id', reservationId)
     .eq('member_id', memberId);
@@ -135,6 +161,38 @@ export async function cancelReservation(
   if (updateError) {
     console.error('Error cancelling reservation:', updateError);
     throw new Error(`取消預約失敗：${updateError.message}`);
+  }
+
+  // Update queue_position for all reservations after the cancelled one
+  // Decrease queue_position by 1 for all reservations with queue_position > cancelledQueuePosition
+  if (cancelledQueuePosition !== null && tournamentWaitlistId !== null) {
+    // Get all reservations with queue_position > cancelledQueuePosition for the same tournament_waitlist_id
+    const { data: laterReservations, error: fetchLaterError } = await supabase
+      .from('reservation')
+      .select('id, queue_position')
+      .eq('tournament_waitlist_id', tournamentWaitlistId)
+      .in('status', ['waiting', 'confirmed'])
+      .gt('queue_position', cancelledQueuePosition)
+      .order('queue_position', { ascending: true });
+
+    if (fetchLaterError) {
+      console.error('Error fetching later reservations:', fetchLaterError);
+      // Don't throw error - reservation is already cancelled, just log the warning
+    } else if (laterReservations && laterReservations.length > 0) {
+      // Update each reservation's queue_position by decreasing by 1
+      for (const laterReservation of laterReservations) {
+        const newQueuePosition = (laterReservation.queue_position || 0) - 1;
+        const { error: updateQueueError } = await supabase
+          .from('reservation')
+          .update({ queue_position: newQueuePosition })
+          .eq('id', laterReservation.id);
+
+        if (updateQueueError) {
+          console.error(`Error updating queue_position for reservation ${laterReservation.id}:`, updateQueueError);
+          // Continue with other updates even if one fails
+        }
+      }
+    }
   }
 }
 
@@ -160,6 +218,41 @@ export async function getReservationsByTournamentWaitlist(
 
   if (error) {
     console.error('Error fetching reservations:', error);
+    throw new Error(`取得預約記錄失敗：${error.message}`);
+  }
+
+  return reservations || [];
+}
+
+/**
+ * Get all reservations for a specific member
+ * @param memberId - The member ID
+ * @param clubId - Optional club ID to filter by club
+ * @returns Array of reservations
+ */
+export async function getReservationsByMember(
+  memberId: number,
+  clubId?: number
+): Promise<Database['public']['Tables']['reservation']['Row'][]> {
+  if (!isSupabaseAvailable() || !supabase) {
+    throw new Error('Supabase is not configured');
+  }
+
+  let query = supabase
+    .from('reservation')
+    .select('*')
+    .eq('member_id', memberId)
+    .in('status', ['waiting', 'confirmed']); // Only active reservations
+
+  if (clubId) {
+    query = query.eq('club_id', clubId);
+  }
+
+  const { data: reservations, error } = await query
+    .order('requested_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching member reservations:', error);
     throw new Error(`取得預約記錄失敗：${error.message}`);
   }
 

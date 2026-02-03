@@ -1,3 +1,8 @@
 # TODO Tasks
-- 關於賽事詳情中已繳費的部分，這邊應該是要參照 tournament 中每一個項目的 from_waitlist_id, 如果 id 符合該預約卡片（tournament_waitlist）的話，就要在已繳費那邊顯示總共有幾人，並且點到已繳費內，如果 tournament，並且根據 club_id 來篩選，然後再看有幾種 tournament (認 ID), 用直列的方式把分別有幾場 tournament 給陳列出來，滾軸做橫的，因為有可能會超出視窗
-- 賽事詳情內的預約席位如果該玩家已經完成預約的話應該要有不同顯示，不要讓他可以重複點擊，應該要變成取消預約
+- 歷史戰績紀錄要接 db
+- 預繳報名費紀錄要接 db
+- 積分系統要接
+    - 積分兌換物品要接
+    - 積分名稱定義要接
+    - ...
+- 請做一個 featureFlag, 讓我可以決定協會中的歷史戰績要用 mock data 還是真實 data, 因為我這邊要開始做真實 data 的 api 串接了，會接到 transactions 中的資料，

@@ -178,7 +178,6 @@ hyperpoker/
 
 - [產品規格書](./SPECIFICATION.md) - 完整的產品規格與技術細節
 - [Supabase 設定指南](./SUPABASE_SETUP.md) - Supabase 資料庫設定說明
-- [賽事資料映射](./TOURNAMENT_SUPABASE_MAPPING.md) - Tournament 類型與 Supabase 欄位映射
 
 ## 授權
 

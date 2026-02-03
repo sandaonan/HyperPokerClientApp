@@ -16,6 +16,7 @@ import { isSupabaseAvailable } from './lib/supabaseClient';
 import { SEED_CLUBS } from './constants';
 import { isSupabaseClub } from './services/mockApi';
 import { getUserById } from './services/supabaseAuth';
+import { NotificationManager } from './components/NotificationManager';
 
 const GuestOverlay: React.FC<{ onLoginClick: () => void }> = ({ onLoginClick }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 pointer-events-auto">
@@ -184,6 +185,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-brand-black text-brand-white font-sans selection:bg-brand-green/30">
+      <NotificationManager userId={currentUser?.id || null} />
       <main className={`mx-auto max-w-md min-h-screen relative ${currentPath !== '/login' ? 'p-4' : ''}`}>
         <Routes>
           <Route path="/login" element={

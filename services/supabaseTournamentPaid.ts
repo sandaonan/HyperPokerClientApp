@@ -40,13 +40,14 @@ export async function getPaidPlayersByWaitlistId(
       return [];
     }
 
-    // 2. For each tournament, count players with confirmed/active status
+    // 2. For each tournament, count players with active status
+    // Note: tournament_player_status enum only has: "active", "eliminated", "cancelled"
     const tournamentIds = tournaments.map(t => t.id);
     const { data: tournamentPlayers, error: playersError } = await supabase
       .from('tournament_player')
       .select('tournament_id, status')
       .in('tournament_id', tournamentIds)
-      .in('status', ['confirmed', 'active']); // Only count confirmed/active players
+      .eq('status', 'active'); // Only count active players (paid players are active)
 
     if (playersError) {
       console.error('Error fetching tournament players:', playersError);

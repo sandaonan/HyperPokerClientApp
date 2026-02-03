@@ -136,8 +136,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
       try {
           await mockApi.registerTournament(user.id, detailTournament.id, type);
           await showAlert("預約成功", "您已成功預約席位。\n請於開賽前至櫃檯報到繳費。");
-          setDetailTournament(null);
-          loadData(); 
+          loadData(); // Refresh data but keep modal open
       } catch (e: any) {
           await showAlert("操作失敗", e.message);
       }
@@ -163,8 +162,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
           try {
             await mockApi.cancelRegistration(user.id, detailTournament.id);
             await showAlert("已取消", "您的預約已取消。");
-            setDetailTournament(null);
-            loadData();
+            loadData(); // Refresh data but keep modal open
           } catch (e: any) {
               await showAlert("錯誤", e.message);
           }
@@ -262,12 +260,20 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
     new Set(dateFilteredTournaments.map(t => t.buyIn + t.fee))
   ).sort((a: number, b: number) => a - b);
   
-  const myEntries = dateFilteredTournaments.filter(t => myRegIds.includes(t.id));
+  // Separate tournaments: those with reservations (to be shown at top) and those without
+  const tournamentsWithReservation = dateFilteredTournaments.filter(t => myRegIds.includes(t.id));
+  const tournamentsWithoutReservation = dateFilteredTournaments.filter(t => !myRegIds.includes(t.id));
   
-  // otherTournaments includes all tournaments (even if user has registered)
-  // so that registered tournaments can also appear in the club tournament list
-  const otherTournaments = dateFilteredTournaments.filter(t => {
+  // Apply buy-in filter to tournaments without reservation
+  const otherTournaments = tournamentsWithoutReservation.filter(t => {
       // Filter by specific amount if selected, otherwise show all
+      if (buyInFilter === 'All') return true;
+      const total = t.buyIn + t.fee;
+      return total === buyInFilter;
+  });
+  
+  // Apply buy-in filter to tournaments with reservation (for consistency)
+  const myEntries = tournamentsWithReservation.filter(t => {
       if (buyInFilter === 'All') return true;
       const total = t.buyIn + t.fee;
       return total === buyInFilter;
@@ -277,9 +283,10 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
     const status = t.isLateRegEnded ? 'CLOSED' : 'OPEN';
     const totalPrice = t.buyIn + t.fee;
     const isOverCap = t.reservedCount > t.maxCap;
+    const hasReservation = reg && (reg.status === 'reserved' || reg.status === 'paid');
+    const isPaid = reg?.status === 'paid';
     
     if (reg) {
-        const isPaid = reg.status === 'paid';
         return (
             <Card 
               key={t.id} 
@@ -291,7 +298,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                         <h3 className={`font-bold text-base ${THEME.textPrimary} font-display tracking-wide`}>{t.name}</h3>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {renderStateBadge(t)}
-                            <Badge variant="warning">已預約</Badge>
+                            {hasReservation && <Badge variant="warning">已預約</Badge>}
                             {t.type && <span className={`text-[10px] ${THEME.textSecondary} border ${THEME.border} rounded px-1 w-fit`}>{t.type}</span>}
                         </div>
                     </div>
@@ -345,6 +352,7 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 <h3 className={`font-bold text-base ${THEME.textPrimary} font-display tracking-wide`}>{t.name}</h3>
                 <div className="flex items-center gap-1.5 flex-wrap">
                     {renderStateBadge(t)}
+                    {reg && (reg.status === 'reserved' || reg.status === 'paid') && <Badge variant="warning">已預約</Badge>}
                     {t.type && <span className={`text-[10px] ${THEME.textSecondary} border ${THEME.border} rounded px-1 w-fit`}>{t.type}</span>}
                 </div>
             </div>
@@ -558,37 +566,28 @@ export const TournamentView: React.FC<TournamentViewProps> = ({ user, club, onBa
                 <div className={`py-10 text-center ${THEME.textSecondary}`}>載入賽程中...</div>
             ) : (
                 <>
-                    {myEntries.length > 0 ? (
-                        <div className="animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
-                            <div className="space-y-2">
-                                {myEntries.map(t => renderTournamentCard(t, myRegistrations.find(r => r.tournamentId === t.id)))}
-                            </div>
-                            {otherTournaments.length > 0 && (
-                                <>
-                                    <div className={`h-px bg-gradient-to-r from-transparent via-brand-border to-transparent w-full my-4`}></div>
-                                    <div className="space-y-2">
-                                        {otherTournaments.map(t => {
-                                            const reg = myRegistrations.find(r => r.tournamentId === t.id);
-                                            return renderTournamentCard(t, reg);
-                                        })}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {otherTournaments.length > 0 ? (
-                                otherTournaments.map(t => {
-                                    const reg = myRegistrations.find(r => r.tournamentId === t.id);
-                                    return renderTournamentCard(t, reg);
-                                })
-                            ) : (
-                                <div className={`text-center py-6 text-xs ${THEME.textSecondary} italic`}>
-                                    沒有符合篩選條件的賽事
-                                </div>
-                            )}
+                    {/* Show tournaments with reservation at top (if any) */}
+                    {myEntries.length > 0 && (
+                        <div className="space-y-2 mb-4">
+                            {myEntries.map(t => renderTournamentCard(t, myRegistrations.find(r => r.tournamentId === t.id)))}
                         </div>
                     )}
+                    
+                    {/* Show separator if both sections have content */}
+                    {myEntries.length > 0 && otherTournaments.length > 0 && (
+                        <div className={`h-px bg-gradient-to-r from-transparent via-brand-border to-transparent w-full my-4`}></div>
+                    )}
+                    
+                    {/* Show tournaments without reservation */}
+                    {otherTournaments.length > 0 ? (
+                        <div className="space-y-2">
+                            {otherTournaments.map(t => renderTournamentCard(t, undefined))}
+                        </div>
+                    ) : myEntries.length === 0 ? (
+                        <div className={`text-center py-6 text-xs ${THEME.textSecondary} italic`}>
+                            沒有符合篩選條件的賽事
+                        </div>
+                    ) : null}
                 </>
             )}
         </div>
