@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Ticket, History, Loader2, Store, Clock, Filter, Trophy, Coins, Check, ChevronDown, ChevronUp, Bell, BellOff } from 'lucide-react';
+import { Ticket, History, Loader2, Store, Clock, Filter, Trophy, Coins, Check, ChevronDown, ChevronUp, Bell, BellOff, Send } from 'lucide-react';
 import { GAME_HISTORY, SEED_CLUBS, SEED_TOURNAMENTS } from '../../constants';
 import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 import { Header } from '../ui/Header';
 import { Switch } from '../ui/Switch';
+import { Button } from '../ui/Button';
 import { TournamentDetailModal } from './TournamentDetailModal';
 import { Tournament, Registration, GameRecord } from '../../types';
 import { mockApi } from '../../services/mockApi';
@@ -53,6 +54,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
   const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
   const [pushEnabled, setPushEnabled] = useState<boolean>(false);
   const [isToggling, setIsToggling] = useState<boolean>(false);
+  const [isTesting, setIsTesting] = useState<boolean>(false);
   
   // Use ref to track if user manually closed notifications (prevent useEffect from overriding)
   const userManuallyClosedRef = useRef<boolean>(false);
@@ -97,11 +99,13 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
       
       if (!pushSupported) {
           setPushEnabled(false);
+          await showAlert('不支援推播', '此裝置不支援推播通知功能');
           return;
       }
 
       if (!userId || userId === 'guest') {
           setPushEnabled(false);
+          await showAlert('需要登入', '請先登入會員後才能啟用推播通知');
           return;
       }
 
@@ -112,6 +116,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
           if (isNaN(memberId)) {
               setPushEnabled(false);
               setIsToggling(false);
+              await showAlert('錯誤', '無效的會員 ID');
               return;
           }
 
@@ -119,6 +124,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
           if (!registration) {
               setPushEnabled(false);
               setIsToggling(false);
+              await showAlert('註冊失敗', 'Service Worker 註冊失敗，請重新整理頁面後再試');
               return;
           }
 
@@ -132,6 +138,11 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
               if (permission !== 'granted') {
                   setPushEnabled(false);
                   setIsToggling(false);
+                  if (permission === 'denied') {
+                      await showAlert('權限被拒絕', '通知權限已被拒絕，請在瀏覽器設定中啟用通知權限');
+                  } else {
+                      await showAlert('權限未授予', '需要通知權限才能啟用推播通知');
+                  }
                   return;
               }
           }
@@ -141,7 +152,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
               userManuallyClosedRef.current = false;
               await subscribeToPush(memberId, registration);
               const hasSubscription = await hasPushSubscriptionInDatabase(memberId);
-              setPushEnabled(hasSubscription);
+              
+              if (hasSubscription) {
+                  setPushEnabled(true);
+                  await showAlert('訂閱成功', '推播通知已啟用，您將收到賽事相關通知');
+              } else {
+                  setPushEnabled(false);
+                  await showAlert('訂閱失敗', '無法確認訂閱狀態，請稍後再試');
+              }
           } else {
               // Unsubscribe from push notifications
               userManuallyClosedRef.current = true;
@@ -149,9 +167,29 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
               await unsubscribeFromPush(memberId, registration);
               const permission = getNotificationPermission();
               setPushPermission(permission);
+              await showAlert('已關閉', '推播通知已關閉');
           }
       } catch (e: any) {
           console.error('[StatsView] Error toggling push:', e);
+          
+          // 顯示詳細的錯誤訊息
+          let errorMessage = '推播通知設定失敗';
+          if (e.message) {
+              if (e.message.includes('VAPID') || e.message.includes('key') || e.message.includes('金鑰')) {
+                  errorMessage = 'VAPID 金鑰未配置或格式錯誤，請檢查環境變數設定';
+              } else if (e.message.includes('權限') || e.message.includes('permission') || e.message.includes('policy') || e.message.includes('RLS')) {
+                  errorMessage = '資料庫權限錯誤，請檢查 RLS 策略設定';
+              } else if (e.message.includes('Service Worker') || e.message.includes('service worker')) {
+                  errorMessage = 'Service Worker 註冊失敗，請重新整理頁面';
+              } else if (e.message.includes('訂閱') || e.message.includes('subscription')) {
+                  errorMessage = `訂閱失敗：${e.message}`;
+              } else {
+                  errorMessage = e.message;
+              }
+          }
+          
+          await showAlert('設定失敗', errorMessage);
+          
           // Revert state on error
           if (checked) {
               setPushEnabled(false);
@@ -162,6 +200,95 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
           }
       } finally {
           setIsToggling(false);
+      }
+  };
+
+  const handleTestNotification = async () => {
+      if (!userId || userId === 'guest') {
+          await showAlert('需要登入', '請先登入會員後才能測試推播通知');
+          return;
+      }
+
+      const memberId = parseInt(userId);
+      if (isNaN(memberId)) {
+          await showAlert('錯誤', '無效的會員 ID');
+          return;
+      }
+
+      if (!pushEnabled) {
+          await showAlert('未啟用', '請先啟用推播通知後再測試');
+          return;
+      }
+
+      // 檢查通知權限和 Service Worker
+      const permission = getNotificationPermission();
+      if (permission !== 'granted') {
+          await showAlert('權限未授予', `通知權限狀態：${permission}\n\n請在瀏覽器設定中允許通知權限`);
+          return;
+      }
+
+      // 檢查 Service Worker
+      try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          if (registrations.length === 0) {
+              await showAlert('Service Worker 未註冊', '請重新整理頁面後再試');
+              return;
+          }
+
+          const subscription = await registrations[0].pushManager.getSubscription();
+          if (!subscription) {
+              await showAlert('未訂閱', '推播訂閱不存在，請重新啟用推播通知');
+              return;
+          }
+      } catch (e: any) {
+          console.error('[StatsView] Error checking Service Worker:', e);
+          await showAlert('檢查失敗', '無法檢查 Service Worker 狀態');
+          return;
+      }
+
+      setIsTesting(true);
+      try {
+          const { sendPushNotification } = await import('../../services/pushNotificationTrigger');
+          await sendPushNotification({
+              memberId,
+              notificationType: 'reservation_created',
+              tournamentName: '測試賽事',
+              startTime: new Date().toISOString()
+          });
+          
+          // 檢查 Service Worker 狀態
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          const activeSW = registrations.find(reg => reg.active);
+          const swState = activeSW ? (activeSW.active?.state || 'unknown') : 'not found';
+          
+          // 顯示診斷資訊
+          const diagnosticInfo = [
+              '✅ 測試通知已發送',
+              '',
+              '診斷資訊：',
+              `• 通知權限：${permission}`,
+              `• Service Worker：已註冊 (狀態: ${swState})`,
+              `• 推播訂閱：已訂閱`,
+              `• 當前 URL：${window.location.origin}`,
+              '',
+              '如果沒有收到通知，請檢查：',
+              '1. 打開瀏覽器控制台（F12），查看是否有',
+              '   "[Service Worker] 🔔 Push event received!" 日誌',
+              '2. 如果沒有日誌，表示 Service Worker 未收到推送',
+              '3. 檢查瀏覽器是否允許通知（系統設定）',
+              '4. 是否開啟了「勿擾模式」',
+              '5. 瀏覽器是否在背景執行',
+              '',
+              '💡 提示：通知權限是基於 origin 的，',
+              '   不需要包含完整路徑，localhost:3000 即可'
+          ].join('\n');
+          
+          await showAlert('測試通知已發送', diagnosticInfo);
+      } catch (e: any) {
+          console.error('[StatsView] Error testing notification:', e);
+          await showAlert('測試失敗', e.message || '無法發送測試通知');
+      } finally {
+          setIsTesting(false);
       }
   };
 
@@ -315,7 +442,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
         
         {/* Notification Settings - Simple Switch */}
         <Card className={`mb-4 ${THEME.card} border ${THEME.border}`}>
-            <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center justify-between px-3 py-2 gap-3">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${pushEnabled ? 'bg-brand-green/20 border border-brand-green/30' : `${THEME.cardHover} border ${THEME.border}`}`}>
                         {pushEnabled ? (
@@ -331,11 +458,32 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                         </span>
                     </div>
                 </div>
-                <Switch
-                    checked={pushEnabled}
-                    onCheckedChange={handleTogglePush}
-                    disabled={isToggling || !pushSupported || !userId || userId === 'guest'}
-                />
+                <div className="flex items-center gap-2 shrink-0">
+                    {pushEnabled && (
+                        <Button
+                            onClick={handleTestNotification}
+                            disabled={isTesting || !pushSupported || !userId || userId === 'guest'}
+                            className={`px-3 py-1.5 text-xs ${THEME.buttonSecondary} ${THEME.textSecondary} border ${THEME.border} hover:${THEME.buttonHover}`}
+                        >
+                            {isTesting ? (
+                                <>
+                                    <Loader2 className="animate-spin mr-1.5" size={12} />
+                                    測試中
+                                </>
+                            ) : (
+                                <>
+                                    <Send size={12} className="mr-1.5" />
+                                    測試通知
+                                </>
+                            )}
+                        </Button>
+                    )}
+                    <Switch
+                        checked={pushEnabled}
+                        onCheckedChange={handleTogglePush}
+                        disabled={isToggling || !pushSupported || !userId || userId === 'guest'}
+                    />
+                </div>
             </div>
         </Card>
         

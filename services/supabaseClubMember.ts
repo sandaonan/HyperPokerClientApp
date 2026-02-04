@@ -85,6 +85,35 @@ export async function getUserClubMemberships(memberId: number): Promise<ClubMemb
 }
 
 /**
+ * Get club_member_code for a specific member and club
+ * @param memberId - The member ID
+ * @param clubId - The club ID
+ * @returns The club_member_code or null if not found
+ */
+export async function getClubMemberCode(
+  memberId: number,
+  clubId: number
+): Promise<string | null> {
+  if (!isSupabaseAvailable() || !supabase) {
+    return null;
+  }
+
+  const { data: clubMember, error } = await supabase
+    .from('club_member')
+    .select('club_member_code')
+    .eq('member_id', memberId)
+    .eq('club_id', clubId)
+    .single();
+
+  if (error || !clubMember) {
+    console.warn('Get club_member_code error:', error);
+    return null;
+  }
+
+  return clubMember.club_member_code;
+}
+
+/**
  * Update KYC status to unverified for all clubs a member has joined
  * This is called when user updates sensitive information in profile
  */

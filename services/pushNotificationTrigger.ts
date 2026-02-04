@@ -46,10 +46,20 @@ export async function sendPushNotification(params: {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Push Notification] Failed to send notification:', response.status, errorText);
+      console.error('[Push Notification] ❌ Failed to send notification:', response.status, errorText);
       // Don't throw error - notification failure shouldn't break the main flow
     } else {
-      // Success - no need to log
+      const result = await response.json();
+      console.log('[Push Notification] ✅ Notification sent:', {
+        sent: result.sent,
+        total: result.total,
+        failed: result.failed,
+        message: result.message
+      });
+      
+      if (result.sent === 0 && result.total > 0) {
+        console.warn('[Push Notification] ⚠️ No notifications were sent. User may not have subscribed.');
+      }
     }
   } catch (error) {
     console.error('[Push Notification] Error sending notification:', error);

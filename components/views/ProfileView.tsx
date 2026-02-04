@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Lock, Camera, Upload, CheckCircle, LogOut, Smartphone, RefreshCw, AlertTriangle, Edit2, Save, MessageSquare, ChevronRight, ChevronDown, ChevronUp, Gift, Trophy, Coins, ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -12,6 +12,7 @@ import { useAlert } from '../../contexts/AlertContext';
 import { THEME } from '../../theme';
 import { isSupabaseClub } from '../../services/mockApi';
 import { getTransactionsByMember, Transaction } from '../../services/supabaseTransaction';
+import JsBarcode from 'jsbarcode';
 
 interface ProfileViewProps {
   user: User;
@@ -70,14 +71,8 @@ const BirthdaySelector = ({ value, onChange, disabled }: { value: string, onChan
     );
 };
 
-// Circular Progress Component for Mileage
-const MileageCircle = ({ current }: { current: number }) => {
-    // Canvas size
-    const size = 160;
-    const strokeWidth = 10;
-    const center = size / 2;
-    const radius = (size - strokeWidth) / 2 - 5; // Padding
-    
+// Progress Component for Mileage (Bar)
+const MileageBar = ({ current }: { current: number }) => {
     // Membership tier thresholds (in 6points)
     const PEARL_THRESHOLD = 0;      // 珍珠卡 (default)
     const EMERALD_THRESHOLD = 5000;  // 翡翠卡
@@ -107,52 +102,79 @@ const MileageCircle = ({ current }: { current: number }) => {
         progress = (current / EMERALD_THRESHOLD) * 100;
     }
     
-    const circumference = 2 * Math.PI * radius;
     const percentage = Math.min(100, Math.max(0, progress));
-    const offset = circumference - (percentage / 100) * circumference;
 
     return (
-        <div className="flex justify-center w-full py-4">
-            <div className="relative" style={{ width: size, height: size }}>
-                <svg className="w-full h-full transform -rotate-90" viewBox={`0 0 ${size} ${size}`}>
-                    {/* Background Track */}
-                    <circle
-                        className="text-neutral-800" 
-                        strokeWidth={strokeWidth}
-                        stroke="currentColor"
-                        fill="transparent"
-                        r={radius}
-                        cx={center}
-                        cy={center}
-                    />
-                    {/* Progress */}
-                    <circle
-                        className={`${THEME.accent} transition-all duration-1000 ease-out drop-shadow-[0_0_8px_rgba(6,193,103,0.5)]`}
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={circumference}
-                        strokeDashoffset={offset}
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r={radius}
-                        cx={center}
-                        cy={center}
-                    />
-                </svg>
-                {/* Text Content - Absolute centered flex container */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">里程碑</span>
-                    <span className="text-2xl font-bold text-white font-mono tracking-tighter leading-none shadow-black drop-shadow-sm">{current.toLocaleString()}</span>
-                    <span className="text-[10px] text-neutral-400 font-mono mb-1">6points</span>
-                    <div className="h-px w-8 bg-neutral-700 my-2"></div>
-                    <span className="text-[10px] text-neutral-500 leading-none mb-1">下一門檻</span>
-                    <span className="text-xs font-bold text-neutral-400 font-mono">{nextThreshold.toLocaleString()} 6points</span>
-                    <span className="text-[10px] text-brand-green font-bold mt-1">{currentTier}</span>
+        <div className="w-full">
+            <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                    <div className={`text-[10px] ${THEME.textSecondary} font-bold uppercase tracking-widest`}>里程碑</div>
+                    <div className={`text-base font-bold ${THEME.textPrimary} font-mono leading-tight`}>
+                        {current.toLocaleString()} <span className={`text-xs ${THEME.textSecondary} font-sans font-medium`}>6points</span>
+                    </div>
                 </div>
+                <div className="shrink-0 text-right">
+                    <div className={`text-[10px] ${THEME.textSecondary} leading-tight`}>下一門檻</div>
+                    <div className={`text-xs ${THEME.textPrimary} font-mono font-bold leading-tight`}>
+                        {nextThreshold.toLocaleString()}
+                    </div>
+                    <div className={`text-[10px] ${THEME.accent} font-bold leading-tight`}>{currentTier}</div>
+                </div>
+            </div>
+
+            <div className={`mt-3 h-2.5 w-full rounded-full border ${THEME.border} bg-black/20 overflow-hidden`}>
+                <div
+                    className={`h-full rounded-full ${THEME.accent} transition-[width] duration-700 ease-out`}
+                    style={{ width: `${percentage}%` }}
+                />
             </div>
         </div>
     );
 };
+
+function MemberBarcode({ value }: { value: string }) {
+    // Generate a scannable barcode (CODE128) as SVG string.
+    const svgMarkup = useMemo(() => {
+        const clean = (value || '').trim();
+        if (!clean) return '';
+        try {
+            const svgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            JsBarcode(svgNode, clean, {
+                format: 'CODE128',
+                displayValue: false,
+                margin: 0,
+                height: 48,
+                width: 2,
+                background: 'transparent',
+                lineColor: '#ffffff',
+            });
+            return svgNode.outerHTML;
+        } catch (e) {
+            console.error('[MemberBarcode] Failed to generate barcode:', e);
+            return '';
+        }
+    }, [value]);
+
+    if (!svgMarkup) {
+        return (
+            <div className={`mt-4 rounded-lg border ${THEME.border} bg-black/30 p-3`}>
+                <div className={`text-center text-xs ${THEME.textSecondary}`}>無法產生條碼</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={`mt-4 rounded-lg border ${THEME.border} bg-black/30 p-3`}>
+            <div className="w-full flex items-center justify-center">
+                <div
+                    className="w-full max-w-[280px]"
+                    // eslint-disable-next-line react/no-danger
+                    dangerouslySetInnerHTML={{ __html: svgMarkup }}
+                />
+            </div>
+        </div>
+    );
+}
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, onLogout }) => {
   const { showAlert, showConfirm, showPrompt } = useAlert();
@@ -176,6 +198,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [expandedTransactions, setExpandedTransactions] = useState(false);
+  const [clubMemberCode, setClubMemberCode] = useState<string | null>(null); // Store club_member_code for barcode
 
   // Check if nickname, mobile, or email has changed
   const nicknameChanged = nickname !== (user.nickname || '');
@@ -208,39 +231,269 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       if(activeTab === 'club') fetchWallets();
   }, [activeTab, user.id]);
 
-  // Fetch transactions when membership card modal opens (only for Supabase clubs)
+  // Fetch transactions when membership card modal opens
   useEffect(() => {
     const fetchTransactions = async () => {
+      console.log('[ProfileView] fetchTransactions called:', { showMemberCard, userId: user.id });
       if (!showMemberCard) {
         setTransactions([]);
         return;
       }
 
-      // Only fetch for Supabase clubs
-      if (!isSupabaseClub(showMemberCard)) {
-        setTransactions([]);
+      // For guest users, still show mock data for mock clubs
+      if (!user.id || user.id === 'guest') {
+        // For mock clubs, show mock data even for guests
+        if (!isSupabaseClub(showMemberCard)) {
+          setTransactionsLoading(true);
+          setTimeout(() => {
+            const mockTransactions: Transaction[] = [
+              {
+                id: 1,
+                amount: 5000,
+                type: 'deposit',
+                completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '櫃檯儲值'
+              },
+              {
+                id: 2,
+                amount: 3400,
+                type: 'withdraw',
+                completed_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '賽事報名費'
+              },
+              {
+                id: 3,
+                amount: 10000,
+                type: 'deposit',
+                completed_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '線上轉帳儲值'
+              },
+              {
+                id: 4,
+                amount: 6600,
+                type: 'withdraw',
+                completed_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '賽事報名費'
+              }
+            ];
+            setTransactions(mockTransactions);
+            setTransactionsLoading(false);
+          }, 300);
+        } else {
+          setTransactions([]);
+        }
         return;
       }
 
       const memberId = parseInt(user.id);
       if (isNaN(memberId)) {
-        setTransactions([]);
+        // For mock clubs, show mock data even if memberId is invalid
+        if (!isSupabaseClub(showMemberCard)) {
+          setTransactionsLoading(true);
+          setTimeout(() => {
+            const mockTransactions: Transaction[] = [
+              {
+                id: 1,
+                amount: 5000,
+                type: 'deposit',
+                completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '櫃檯儲值'
+              },
+              {
+                id: 2,
+                amount: 3400,
+                type: 'withdraw',
+                completed_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '賽事報名費'
+              },
+              {
+                id: 3,
+                amount: 10000,
+                type: 'deposit',
+                completed_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '線上轉帳儲值'
+              },
+              {
+                id: 4,
+                amount: 6600,
+                type: 'withdraw',
+                completed_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '賽事報名費'
+              }
+            ];
+            setTransactions(mockTransactions);
+            setTransactionsLoading(false);
+          }, 300);
+        } else {
+          setTransactions([]);
+        }
         return;
       }
 
       setTransactionsLoading(true);
-      try {
-        const txns = await getTransactionsByMember(showMemberCard, memberId);
-        setTransactions(txns);
-      } catch (error: any) {
-        console.error('Failed to fetch transactions:', error);
-        setTransactions([]);
-      } finally {
-        setTransactionsLoading(false);
+
+      // For Supabase clubs, fetch from database, fallback to mock if empty
+      if (isSupabaseClub(showMemberCard)) {
+        console.log('[ProfileView] Fetching transactions from Supabase for club:', showMemberCard, 'member:', memberId);
+        try {
+          const txns = await getTransactionsByMember(showMemberCard, memberId);
+          console.log('[ProfileView] Fetched transactions from Supabase:', txns.length);
+          // If no transactions in database, show mock data as fallback
+          if (txns.length === 0) {
+            console.log('[ProfileView] No transactions in database, using mock data as fallback');
+            const mockTransactions: Transaction[] = [
+              {
+                id: 1,
+                amount: 5000,
+                type: 'deposit',
+                completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '櫃檯儲值'
+              },
+              {
+                id: 2,
+                amount: 3400,
+                type: 'withdraw',
+                completed_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '賽事報名費'
+              },
+              {
+                id: 3,
+                amount: 10000,
+                type: 'deposit',
+                completed_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '線上轉帳儲值'
+              },
+              {
+                id: 4,
+                amount: 6600,
+                type: 'withdraw',
+                completed_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                description: '賽事報名費'
+              }
+            ];
+            setTransactions(mockTransactions);
+          } else {
+            setTransactions(txns);
+          }
+        } catch (error: any) {
+          console.error('Failed to fetch transactions:', error);
+          // On error, show mock data as fallback
+          console.log('[ProfileView] Error fetching transactions, using mock data as fallback');
+          const mockTransactions: Transaction[] = [
+            {
+              id: 1,
+              amount: 5000,
+              type: 'deposit',
+              completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+              description: '櫃檯儲值'
+            },
+            {
+              id: 2,
+              amount: 3400,
+              type: 'withdraw',
+              completed_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+              description: '賽事報名費'
+            },
+            {
+              id: 3,
+              amount: 10000,
+              type: 'deposit',
+              completed_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              description: '線上轉帳儲值'
+            },
+            {
+              id: 4,
+              amount: 6600,
+              type: 'withdraw',
+              completed_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+              description: '賽事報名費'
+            }
+          ];
+          setTransactions(mockTransactions);
+        } finally {
+          setTransactionsLoading(false);
+        }
+      } else {
+        // For mock clubs, use mock data
+        console.log('[ProfileView] Using mock transactions for club:', showMemberCard);
+        // Simulate API delay
+        setTimeout(() => {
+          const mockTransactions: Transaction[] = [
+            {
+              id: 1,
+              amount: 5000,
+              type: 'deposit',
+              completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+              description: '櫃檯儲值'
+            },
+            {
+              id: 2,
+              amount: 3400,
+              type: 'withdraw',
+              completed_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+              description: '賽事報名費'
+            },
+            {
+              id: 3,
+              amount: 10000,
+              type: 'deposit',
+              completed_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+              description: '線上轉帳儲值'
+            },
+            {
+              id: 4,
+              amount: 6600,
+              type: 'withdraw',
+              completed_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+              description: '賽事報名費'
+            }
+          ];
+          console.log('[ProfileView] Setting mock transactions:', mockTransactions.length);
+          setTransactions(mockTransactions);
+          setTransactionsLoading(false);
+        }, 300); // 300ms delay to simulate API call
       }
     };
 
     fetchTransactions();
+  }, [showMemberCard, user.id]);
+
+  // Fetch club_member_code when modal opens
+  useEffect(() => {
+    const fetchClubMemberCode = async () => {
+      if (!showMemberCard || !user.id || user.id === 'guest') {
+        setClubMemberCode(null);
+        return;
+      }
+
+      const memberId = parseInt(user.id);
+      if (isNaN(memberId)) {
+        setClubMemberCode(null);
+        return;
+      }
+
+      // Only fetch for Supabase clubs
+      if (isSupabaseClub(showMemberCard)) {
+        try {
+          const { getClubMemberCode } = await import('../../services/supabaseClubMember');
+          const clubId = parseInt(showMemberCard);
+          if (!isNaN(clubId)) {
+            const code = await getClubMemberCode(memberId, clubId);
+            setClubMemberCode(code);
+          } else {
+            setClubMemberCode(null);
+          }
+        } catch (error) {
+          console.error('[ProfileView] Failed to fetch club_member_code:', error);
+          setClubMemberCode(null);
+        }
+      } else {
+        // For mock clubs, use user.id as fallback
+        setClubMemberCode(user.id);
+      }
+    };
+
+    fetchClubMemberCode();
   }, [showMemberCard, user.id]);
 
   const handleSensitiveChange = (field: string, value: any) => {
@@ -508,13 +761,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
 
                 <div className="space-y-4">
                     <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
-                        <Input 
-                            label="真實姓名" 
-                            placeholder="例：王小明"
-                            value={sensitiveData.name} 
-                            onChange={(e) => handleSensitiveChange('name', e.target.value)}
-                            disabled={!isEditingIdentity}
-                        />
+                    <Input 
+                        label="真實姓名" 
+                        placeholder="例：王小明"
+                        value={sensitiveData.name} 
+                        onChange={(e) => handleSensitiveChange('name', e.target.value)}
+                        disabled={!isEditingIdentity}
+                    />
                     </div>
                     
                     {/* Nationality Selection */}
@@ -536,13 +789,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                     {/* National ID - Only show for Taiwan */}
                     {sensitiveData.nationality === 'TW' && (
                         <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
-                            <Input 
-                                label="身分證字號" 
-                                placeholder="例：A123456789"
-                                value={sensitiveData.nationalId} 
-                                onChange={(e) => handleSensitiveChange('nationalId', e.target.value)}
-                                disabled={!isEditingIdentity}
-                            />
+                    <Input 
+                        label="身分證字號" 
+                        placeholder="例：A123456789"
+                        value={sensitiveData.nationalId} 
+                        onChange={(e) => handleSensitiveChange('nationalId', e.target.value)}
+                        disabled={!isEditingIdentity}
+                    />
                         </div>
                     )}
 
@@ -560,11 +813,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                     )}
 
                     <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
-                        <BirthdaySelector 
-                            value={sensitiveData.birthday} 
-                            onChange={(val) => handleSensitiveChange('birthday', val)} 
-                            disabled={!isEditingIdentity}
-                        />
+                    <BirthdaySelector 
+                        value={sensitiveData.birthday} 
+                        onChange={(val) => handleSensitiveChange('birthday', val)} 
+                        disabled={!isEditingIdentity}
+                    />
                     </div>
 
                     <div className={`${THEME.card} border ${THEME.border} rounded-lg p-3`}>
@@ -619,10 +872,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                                         <>
                                             <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
                                                 <Upload size={14} /> <span className="text-xs">護照封面</span>
-                                            </button>
+                                    </button>
                                             <button onClick={handleUploadKyc} className={`${THEME.card} border border-dashed ${THEME.border} rounded-lg py-3 flex items-center justify-center gap-2 ${THEME.textSecondary} hover:${THEME.textPrimary} hover:border-brand-green hover:bg-brand-green/5 transition-all`}>
                                                 <Upload size={14} /> <span className="text-xs">護照內頁</span>
-                                            </button>
+                                    </button>
                                         </>
                                     )}
                                 </div>
@@ -657,7 +910,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         onClick={() => setShowMemberCard(wallet.clubId)}
                         className={`bg-gradient-to-br from-brand-dark to-[#0f0f0f] p-6 rounded-2xl border ${THEME.border} shadow-lg relative overflow-hidden cursor-pointer group hover:border-brand-green/30 hover:shadow-brand-green/10 transition-all active:scale-[0.98] mb-4`}
                     >
-                        <div className="absolute top-0 right-0 p-4">
+                        <div className="absolute bottom-0 right-0 p-4">
                             <div className={`flex items-center gap-1 text-xs ${THEME.textSecondary} group-hover:${THEME.accent} transition-colors`}>
                                 查看會員卡 <ChevronRight size={14} />
                             </div>
@@ -672,8 +925,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                         )}
 
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-black shadow-lg">
-                            <span className="font-bold text-lg">{club.name.substring(0,2)}</span>
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center border ${THEME.border} ${THEME.cardHover} shadow-lg`}>
+                            <span className={`font-bold text-lg ${THEME.accent}`}>{club.name.substring(0,2)}</span>
                             </div>
                             <div>
                                 <h3 className="font-bold text-lg font-display">{club.name}</h3>
@@ -726,195 +979,202 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       </div>
 
       {/* Member Card Modal */}
-      <Modal isOpen={!!showMemberCard} onClose={() => setShowMemberCard(null)} title="會員認證">
+      <Modal isOpen={!!showMemberCard} onClose={() => setShowMemberCard(null)} title="協會會員卡">
          <div className="flex flex-col items-center space-y-4">
              
-             {/* 1. Combined Membership Card (Card + Barcode) */}
-             <div className="w-full aspect-[1.5/1] bg-gradient-to-br from-yellow-200 via-amber-400 to-amber-600 rounded-xl shadow-2xl relative overflow-hidden flex flex-col justify-between">
-                 {/* Card Texture Overlay */}
-                 <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
-                     backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)',
-                     backgroundSize: '16px 16px'
-                 }}></div>
-                 
-                 {/* Top Shine */}
-                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-10 pointer-events-none"></div>
-
-                 {/* Top Section: Branding */}
-                 <div className="relative z-10 p-6">
-                    <div className="flex justify-between items-start">
-                        <div>
-                             <div className="flex items-center gap-2 text-black/90 font-display font-bold text-2xl tracking-wide drop-shadow-sm">
-                                <span>♠️</span> {selectedClubInfo?.name || 'Club'}
+            {/* Membership Card (theme-based) + Member ID Barcode */}
+            <div className={`w-full ${THEME.card} border ${THEME.border} rounded-xl p-4 relative overflow-hidden`}>
+                <div className="absolute inset-0 pointer-events-none opacity-60 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-green/15 via-transparent to-transparent" />
+                <div className="relative">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className={`text-sm font-bold ${THEME.textPrimary} truncate`}>
+                                {selectedClubInfo?.name || 'Club'}
                             </div>
-                            <div className="text-[10px] text-black/70 uppercase tracking-widest font-bold mt-1">
-                                {selectedClubInfo?.tier || 'MEMBER'} PASS
+                            <div className={`text-base font-bold ${THEME.accent} mt-1`}>
+                                {selectedClubInfo?.tier ? `${selectedClubInfo.tier} 會員` : '會員'}
                             </div>
                         </div>
-                        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30">
-                             {/* Hologram Effect Placeholder */}
-                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-300 to-purple-400 opacity-60"></div>
+                        <div className="shrink-0 text-right">
+                            <div className={`text-[10px] ${THEME.textSecondary}`}>會員編號</div>
+                            <div className={`text-sm font-mono font-bold ${THEME.textPrimary}`}>
+                                {clubMemberCode || (user.id && user.id !== 'guest' ? user.id : '—')}
+                            </div>
                         </div>
                     </div>
-                 </div>
 
-                 {/* Bottom Section: Barcode Area */}
-                 <div className="relative z-10 mx-6 mb-6">
-                     <div className="bg-white/95 backdrop-blur-md rounded-lg p-3 shadow-lg flex flex-col items-center gap-1 border border-white/50">
-                        {/* Simulated Barcode */}
-                         <div className="w-3/4 h-8 bg-black opacity-90" style={{
-                             maskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)',
-                             WebkitMaskImage: 'repeating-linear-gradient(90deg, black, black 1px, transparent 1px, transparent 3px)'
-                         }}></div>
-                         <div className={`text-black font-mono text-xs font-bold tracking-widest ${THEME.textSecondary}`}>2967089445</div>
-                     </div>
-                 </div>
-             </div>
+                    {/* Barcode (scannable) */}
+                    <div className="mt-4 flex justify-center">
+                        <MemberBarcode value={clubMemberCode || (user.id && user.id !== 'guest' ? user.id : '')} />
+                    </div>
 
-             {/* 2. Mileage Circle (Moved below card) */}
-             <MileageCircle current={mockSixPoints} />
+                    {/* Milestone (bar) */}
+                    <div className={`mt-4 pt-4 border-t ${THEME.border}`}>
+                        <MileageBar current={mockSixPoints} />
+                    </div>
+                </div>
+            </div>
 
-             {/* 3. Financial Info & Points */}
-             <div className={`w-full bg-[#262626] rounded-xl p-4 border ${THEME.border} space-y-3 mt-2`}>
-                 <div className={`flex justify-between items-center border-b ${THEME.border} pb-2`}>
-                     <span className={`text-sm ${THEME.textSecondary}`}>預繳報名費餘額</span>
-                     <span className={`font-mono font-bold ${THEME.textPrimary}`}>${selectedWallet?.balance.toLocaleString()}</span>
-                 </div>
-                 
-                 {/* 6points Section */}
-                 <div className="space-y-2">
-                     <button
-                         onClick={() => setExpandedSixPoints(!expandedSixPoints)}
-                         className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
-                     >
-                         <div className="flex items-center gap-2">
-                             <Trophy size={16} className={THEME.accent} />
-                             <span className={`text-sm ${THEME.textPrimary} font-medium`}>6points 點數</span>
-                         </div>
-                         <div className="flex items-center gap-2">
-                             <span className={`font-mono font-bold ${THEME.accent}`}>{mockSixPoints}</span>
-                             {expandedSixPoints ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
-                         </div>
-                     </button>
-                     {expandedSixPoints && (
-                         <div className="pl-6 space-y-2 animate-in slide-in-from-top-1 duration-200">
-                             {redemptionItems.filter(item => item.pointsType === 'sixPoints').map(item => (
-                                 <div key={item.id} className={`flex justify-between items-center p-2 rounded ${THEME.card} border ${THEME.border}`}>
-                                     <div className="flex items-center gap-2">
-                                         <Gift size={12} className={THEME.accent} />
-                                         <span className={`text-xs ${THEME.textPrimary}`}>{item.name}</span>
-                                     </div>
-                                     <span className={`text-xs font-mono ${THEME.accent}`}>{item.cost} 6points</span>
-                                 </div>
-                             ))}
-                             <p className={`text-[10px] ${THEME.textSecondary} italic mt-2 pt-2 border-t ${THEME.border}`}>
-                                 如需兌換請至協會櫃檯
-                             </p>
-                         </div>
-                     )}
-                 </div>
-                 
-                 {/* Activity Points Section */}
-                 <div className="space-y-2">
-                     <button
-                         onClick={() => setExpandedActivityPoints(!expandedActivityPoints)}
-                         className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
-                     >
-                         <div className="flex items-center gap-2">
-                             <Coins size={16} className="text-blue-400" />
-                             <span className={`text-sm ${THEME.textPrimary} font-medium`}>活動點數</span>
-                         </div>
-                         <div className="flex items-center gap-2">
-                             <span className={`font-mono font-bold text-blue-400`}>{mockActivityPoints}</span>
-                             {expandedActivityPoints ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
-                         </div>
-                     </button>
-                     {expandedActivityPoints && (
-                         <div className="pl-6 space-y-2 animate-in slide-in-from-top-1 duration-200">
-                             {redemptionItems.filter(item => item.pointsType === 'activityPoints').map(item => (
-                                 <div key={item.id} className={`flex justify-between items-center p-2 rounded ${THEME.card} border ${THEME.border}`}>
-                                     <div className="flex items-center gap-2">
-                                         <Gift size={12} className="text-blue-400" />
-                                         <span className={`text-xs ${THEME.textPrimary}`}>{item.name}</span>
-                                     </div>
-                                     <span className={`text-xs font-mono text-blue-400`}>{item.cost} 活動點數</span>
-                                 </div>
-                             ))}
-                             <p className={`text-[10px] ${THEME.textSecondary} italic mt-2 pt-2 border-t ${THEME.border}`}>
-                                 如需兌換請至協會櫃檯
-                             </p>
-                         </div>
-                     )}
-                 </div>
+            {/* Financial Info & Points (keep existing lists) */}
+            <div className={`w-full ${THEME.card} rounded-xl p-4 border ${THEME.border} space-y-3`}>
+                <div className={`flex justify-between items-center border-b ${THEME.border} pb-2`}>
+                    <span className={`text-sm ${THEME.textSecondary}`}>預繳報名費餘額</span>
+                    <span className={`font-mono font-bold ${THEME.textPrimary}`}>${selectedWallet?.balance?.toLocaleString?.() ?? 0}</span>
+                </div>
+                
+                {/* 6points Section */}
+                <div className="space-y-2">
+                    <button
+                        onClick={() => setExpandedSixPoints(!expandedSixPoints)}
+                        className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Trophy size={16} className={THEME.accent} />
+                            <span className={`text-sm ${THEME.textPrimary} font-medium`}>6points 點數</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`font-mono font-bold ${THEME.accent}`}>{mockSixPoints}</span>
+                            {expandedSixPoints ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
+                        </div>
+                    </button>
+                    {expandedSixPoints && (
+                        <div className="pl-6 animate-in slide-in-from-top-1 duration-200">
+                            {redemptionItems.filter(item => item.pointsType === 'sixPoints').map((item, index, array) => (
+                                <div
+                                    key={item.id}
+                                    className={`py-2.5 ${index < array.length - 1 ? `border-b ${THEME.border}` : ''}`}
+                                >
+                                    <div className="flex justify-between items-center gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Gift size={14} className={THEME.accent} />
+                                            <span className={`text-sm ${THEME.textPrimary}`}>{item.name}</span>
+                                        </div>
+                                        <span className={`text-sm font-mono ${THEME.accent}`}>{item.cost} 6points</span>
+                                    </div>
+                                </div>
+                            ))}
+                            <p className={`text-[10px] ${THEME.textSecondary} italic mt-2 pt-2 border-t ${THEME.border}`}>
+                                如需兌換請至協會櫃檯
+                            </p>
+                        </div>
+                    )}
+                </div>
 
-                 {/* Transaction History Section - Only for Supabase clubs */}
-                 {isSupabaseClub(showMemberCard || '') && (
-                     <div className={`space-y-2 border-t ${THEME.border} pt-3`}>
-                         <button
-                             onClick={() => setExpandedTransactions(!expandedTransactions)}
-                             className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
-                         >
-                             <div className="flex items-center gap-2">
-                                 <ArrowDown size={16} className="text-green-400" />
-                                 <span className={`text-sm ${THEME.textPrimary} font-medium`}>預繳報名費紀錄</span>
-                             </div>
-                             <div className="flex items-center gap-2">
-                                 {transactionsLoading ? (
-                                     <Loader2 size={14} className={`animate-spin ${THEME.textSecondary}`} />
-                                 ) : (
-                                     <span className={`text-xs ${THEME.textSecondary}`}>{transactions.length} 筆</span>
-                                 )}
-                                 {expandedTransactions ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
-                             </div>
-                         </button>
-                         {expandedTransactions && (
-                             <div className="pl-6 space-y-2 animate-in slide-in-from-top-1 duration-200">
-                                 {transactionsLoading ? (
-                                     <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>載入中...</div>
-                                 ) : transactions.length === 0 ? (
-                                     <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>尚無交易記錄</div>
-                                 ) : (
-                                     transactions.map(txn => (
-                                         <div key={txn.id} className={`flex justify-between items-center p-2 rounded ${THEME.card} border ${THEME.border}`}>
-                                             <div className="flex items-center gap-2 flex-1">
-                                                 {txn.type === 'deposit' ? (
-                                                     <ArrowDown size={12} className="text-green-400" />
-                                                 ) : (
-                                                     <ArrowUp size={12} className="text-red-400" />
-                                                 )}
-                                                 <div className="flex-1">
-                                                     <div className={`text-xs ${THEME.textPrimary} font-medium`}>
-                                                         {txn.type === 'deposit' ? '儲值' : '提領'}
-                                                     </div>
-                                                     {txn.completed_at && (
-                                                         <div className={`text-[10px] ${THEME.textSecondary}`}>
-                                                             {new Date(txn.completed_at).toLocaleString('zh-TW', {
-                                                                 year: 'numeric',
-                                                                 month: '2-digit',
-                                                                 day: '2-digit',
-                                                                 hour: '2-digit',
-                                                                 minute: '2-digit'
-                                                             })}
-                                                         </div>
-                                                     )}
-                                                     {txn.description && (
-                                                         <div className={`text-[10px] ${THEME.textSecondary} mt-0.5`}>
-                                                             {txn.description}
-                                                         </div>
-                                                     )}
-                                                 </div>
-                                             </div>
-                                             <span className={`text-xs font-mono font-bold ${txn.type === 'deposit' ? 'text-green-400' : 'text-red-400'}`}>
-                                                 {txn.type === 'deposit' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString()}
-                                             </span>
-                                         </div>
-                                     ))
-                                 )}
-                             </div>
-                         )}
-                     </div>
-                 )}
-             </div>
+                {/* Activity Points Section */}
+                <div className="space-y-2">
+                    <button
+                        onClick={() => setExpandedActivityPoints(!expandedActivityPoints)}
+                        className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Coins size={16} className="text-blue-400" />
+                            <span className={`text-sm ${THEME.textPrimary} font-medium`}>活動點數</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`font-mono font-bold text-blue-400`}>{mockActivityPoints}</span>
+                            {expandedActivityPoints ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
+                        </div>
+                    </button>
+                    {expandedActivityPoints && (
+                        <div className="pl-6 animate-in slide-in-from-top-1 duration-200">
+                            {redemptionItems.filter(item => item.pointsType === 'activityPoints').map((item, index, array) => (
+                                <div
+                                    key={item.id}
+                                    className={`py-2.5 ${index < array.length - 1 ? `border-b ${THEME.border}` : ''}`}
+                                >
+                                    <div className="flex justify-between items-center gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Gift size={14} className="text-blue-400" />
+                                            <span className={`text-sm ${THEME.textPrimary}`}>{item.name}</span>
+                                        </div>
+                                        <span className={`text-sm font-mono text-blue-400`}>{item.cost} 活動點數</span>
+                                    </div>
+                                </div>
+                            ))}
+                            <p className={`text-[10px] ${THEME.textSecondary} italic mt-2 pt-2 border-t ${THEME.border}`}>
+                                如需兌換請至協會櫃檯
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Transaction History Section */}
+                <div className={`space-y-2 border-t ${THEME.border} pt-3`}>
+                    <button
+                        onClick={() => setExpandedTransactions(!expandedTransactions)}
+                        className="w-full flex justify-between items-center hover:bg-white/5 rounded-lg p-2 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <ArrowDown size={16} className="text-green-400" />
+                            <span className={`text-sm ${THEME.textPrimary} font-medium`}>預繳報名費紀錄</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {transactionsLoading ? (
+                                <Loader2 size={14} className={`animate-spin ${THEME.textSecondary}`} />
+                            ) : (
+                                <span className={`text-xs ${THEME.textSecondary}`}>{transactions.length} 筆</span>
+                            )}
+                            {expandedTransactions ? <ChevronUp size={16} className={THEME.textSecondary} /> : <ChevronDown size={16} className={THEME.textSecondary} />}
+                        </div>
+                    </button>
+                    {expandedTransactions && (
+                        <div className="pl-6 animate-in slide-in-from-top-1 duration-200">
+                            {transactionsLoading ? (
+                                <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>載入中...</div>
+                            ) : transactions.length === 0 ? (
+                                <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>尚無交易記錄</div>
+                            ) : (
+                                transactions.map((txn, index) => (
+                                    <div
+                                        key={txn.id}
+                                        className={`py-2.5 ${index < transactions.length - 1 ? `border-b ${THEME.border}` : ''}`}
+                                    >
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                {txn.type === 'deposit' ? (
+                                                    <ArrowDown size={14} className="text-green-400 shrink-0" />
+                                                ) : (
+                                                    <ArrowUp size={14} className="text-red-400 shrink-0" />
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className={`text-sm ${THEME.textPrimary} font-medium`}>
+                                                        {txn.type === 'deposit' ? '儲值' : '提領'}
+                                                    </div>
+                                                    {txn.description && (
+                                                        <div className={`text-xs ${THEME.textSecondary} mt-0.5`}>
+                                                            {txn.description}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1 shrink-0">
+                                                <span
+                                                    className={`text-sm font-mono font-bold ${
+                                                        txn.type === 'deposit' ? 'text-green-400' : 'text-red-400'
+                                                    }`}
+                                                >
+                                                    {txn.type === 'deposit' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString()}
+                                                </span>
+                                                {txn.completed_at && (
+                                                    <div className={`text-[10px] ${THEME.textSecondary} opacity-60`}>
+                                                        {new Date(txn.completed_at).toLocaleString('zh-TW', {
+                                                            year: 'numeric',
+                                                            month: '2-digit',
+                                                            day: '2-digit',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
              
              {selectedClubInfo?.feedbackUrl && (
                  <Button 

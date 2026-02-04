@@ -24,7 +24,11 @@ self.addEventListener('activate', (event) => {
 
 // Push event - handle incoming push notifications
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push received:', event);
+  console.log('[Service Worker] 🔔 Push event received!', {
+    hasData: !!event.data,
+    dataType: event.data ? (event.data.type || 'unknown') : 'no data',
+    timestamp: new Date().toISOString()
+  });
   
   let notificationData = {
     title: 'HyperPoker',
@@ -40,6 +44,7 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const data = event.data.json();
+      console.log('[Service Worker] 📦 Parsed push data:', data);
       notificationData = {
         ...notificationData,
         title: data.title || notificationData.title,
@@ -48,13 +53,23 @@ self.addEventListener('push', (event) => {
         data: data.data || {}
       };
     } catch (e) {
+      console.warn('[Service Worker] ⚠️ Failed to parse JSON, trying text:', e);
       // If not JSON, try text
-      const text = event.data.text();
-      if (text) {
-        notificationData.body = text;
+      try {
+        const text = event.data.text();
+        if (text) {
+          notificationData.body = text;
+          console.log('[Service Worker] 📝 Using text data:', text);
+        }
+      } catch (textError) {
+        console.error('[Service Worker] ❌ Failed to parse push data:', textError);
       }
     }
+  } else {
+    console.warn('[Service Worker] ⚠️ Push event has no data');
   }
+
+  console.log('[Service Worker] 📤 Showing notification:', notificationData);
 
   event.waitUntil(
     self.registration.showNotification(notificationData.title, {
@@ -66,6 +81,10 @@ self.addEventListener('push', (event) => {
       data: notificationData.data,
       vibrate: [200, 100, 200],
       timestamp: Date.now()
+    }).then(() => {
+      console.log('[Service Worker] ✅ Notification shown successfully');
+    }).catch((error) => {
+      console.error('[Service Worker] ❌ Failed to show notification:', error);
     })
   );
 });

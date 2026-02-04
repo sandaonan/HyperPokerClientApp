@@ -271,19 +271,37 @@ serve(async (req) => {
         }
         
         // Log the call for debugging
-        console.log(`Sending notification to subscription ${subscription.id}, endpoint: ${pushSubscription.endpoint.substring(0, 50)}...`);
+        console.log(`[${subscription.id}] Attempting to send notification to endpoint: ${pushSubscription.endpoint.substring(0, 60)}...`);
+        console.log(`[${subscription.id}] Payload length: ${payloadString.length} bytes`);
+        console.log(`[${subscription.id}] VAPID subject: ${vapidOptions.vapidDetails.subject}`);
         
-        await webPush.sendNotification(
-          pushSubscription,
-          payloadString,
-          vapidOptions
-        );
-        sentCount++;
+        try {
+          const result = await webPush.sendNotification(
+            pushSubscription,
+            payloadString,
+            vapidOptions
+          );
+          console.log(`[${subscription.id}] ✅ Successfully sent notification`, {
+            statusCode: result?.statusCode,
+            headers: result?.headers
+          });
+          sentCount++;
+        } catch (sendError: any) {
+          // Re-throw to be caught by outer catch
+          throw sendError;
+        }
       } catch (error: any) {
-        console.error(`Failed to send notification to subscription ${subscription.id}:`, error);
+        console.error(`[${subscription.id}] ❌ Failed to send notification:`, {
+          error: error.message || error,
+          statusCode: error.statusCode,
+          name: error.name,
+          code: error.code,
+          endpoint: subscription.endpoint?.substring(0, 60)
+        });
         
         // If subscription is invalid (410 Gone or 404 Not Found), mark for deletion
         if (error.statusCode === 410 || error.statusCode === 404) {
+          console.log(`[${subscription.id}] Marking subscription for deletion (status: ${error.statusCode})`);
           failedSubscriptions.push(subscription.id);
         }
       }
@@ -291,12 +309,26 @@ serve(async (req) => {
 
     // Delete invalid subscriptions
     if (failedSubscriptions.length > 0) {
-      await supabase
+      console.log(`🗑️ Deleting ${failedSubscriptions.length} invalid subscriptions:`, failedSubscriptions);
+      const { error: deleteError } = await supabase
         .from('push_subscriptions')
         .delete()
         .in('id', failedSubscriptions);
-      console.log(`Deleted ${failedSubscriptions.length} invalid subscriptions`);
+      
+      if (deleteError) {
+        console.error('❌ Failed to delete invalid subscriptions:', deleteError);
+      } else {
+        console.log(`✅ Successfully deleted ${failedSubscriptions.length} invalid subscriptions`);
+      }
     }
+
+    // Log final summary
+    console.log(`📊 Notification Summary:`, {
+      total: subscriptions.length,
+      sent: sentCount,
+      failed: failedSubscriptions.length,
+      success: sentCount > 0 ? '✅' : '❌'
+    });
 
     return new Response(
       JSON.stringify({

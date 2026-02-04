@@ -64,12 +64,13 @@ export async function subscribeToPush(
   memberId: number,
   registration: ServiceWorkerRegistration
 ): Promise<PushSubscription | null> {
+  // Log VAPID key status for debugging
+  console.log('[Push Notification] VAPID Public Key:', VAPID_PUBLIC_KEY ? `Configured (${VAPID_PUBLIC_KEY.substring(0, 20)}...)` : 'Missing');
+  
   if (!VAPID_PUBLIC_KEY) {
-    console.warn('[Push Notification] ⚠️ VAPID public key not configured');
-    console.warn('[Push Notification] Please add VITE_VAPID_PUBLIC_KEY to your .env.local file');
-    console.warn('[Push Notification] You can generate VAPID keys by running: npx web-push generate-vapid-keys');
-    // Don't return null - still try to save subscription to database even without VAPID key
-    // The subscription might be created by another device/browser that has VAPID key configured
+    const errorMsg = 'VAPID 公鑰未配置，請檢查環境變數 VITE_VAPID_PUBLIC_KEY';
+    console.error('[Push Notification] ⚠️', errorMsg);
+    throw new Error(errorMsg);
   }
 
   try {
@@ -78,20 +79,48 @@ export async function subscribeToPush(
     
     if (!subscription) {
       // Create new subscription
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      } catch (subscribeError: any) {
+        console.error('[Push Notification] Failed to create push subscription:', subscribeError);
+        if (subscribeError.name === 'NotAllowedError') {
+          throw new Error('瀏覽器拒絕了推播訂閱請求，請檢查通知權限');
+        } else if (subscribeError.name === 'InvalidStateError') {
+          throw new Error('訂閱狀態無效，請重新整理頁面後再試');
+        } else if (subscribeError.message?.includes('VAPID') || subscribeError.message?.includes('key')) {
+          throw new Error('VAPID 金鑰格式錯誤，請檢查環境變數設定');
+        } else {
+          throw new Error(`建立訂閱失敗：${subscribeError.message || subscribeError.name}`);
+        }
+      }
     }
 
     // Save subscription to Supabase
-    await saveSubscriptionToSupabase(memberId, subscription);
+    try {
+      await saveSubscriptionToSupabase(memberId, subscription);
+    } catch (saveError: any) {
+      console.error('[Push Notification] Failed to save subscription to database:', saveError);
+      // 如果保存失敗，但訂閱已建立，我們仍然拋出錯誤讓用戶知道
+      if (saveError.message?.includes('權限') || saveError.message?.includes('permission') || saveError.message?.includes('policy')) {
+        throw new Error('無法保存訂閱到資料庫：權限錯誤，請檢查 RLS 策略');
+      } else {
+        throw new Error(`無法保存訂閱到資料庫：${saveError.message || '未知錯誤'}`);
+      }
+    }
 
-    // Successfully subscribed (no need to log)
+    // Successfully subscribed
     return subscription;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Push Notification] Subscription failed:', error);
-    throw error;
+    // 如果錯誤已經有詳細訊息，直接拋出；否則包裝成更友好的訊息
+    if (error.message && !error.message.includes('訂閱')) {
+      throw error;
+    } else {
+      throw new Error(`訂閱失敗：${error.message || '未知錯誤'}`);
+    }
   }
 }
 
@@ -105,19 +134,34 @@ export async function unsubscribeFromPush(
   try {
     const subscription = await registration.pushManager.getSubscription();
     if (subscription) {
-      await subscription.unsubscribe();
-      await deleteSubscriptionFromSupabase(memberId, subscription.endpoint);
-      // Successfully unsubscribed (no need to log)
+      try {
+        await subscription.unsubscribe();
+      } catch (unsubError: any) {
+        console.error('[Push Notification] Failed to unsubscribe from push manager:', unsubError);
+        // 即使 unsubscribe 失敗，我們仍然嘗試從資料庫刪除
+      }
+      
+      try {
+        await deleteSubscriptionFromSupabase(memberId, subscription.endpoint);
+      } catch (deleteError: any) {
+        console.error('[Push Notification] Failed to delete subscription from database:', deleteError);
+        // 如果刪除失敗，繼續嘗試刪除所有訂閱
+      }
     }
     
     // Also delete all subscriptions for this member from Supabase (in case there are multiple)
     // This ensures we clean up any orphaned subscriptions
-    await deleteAllSubscriptionsFromSupabase(memberId);
+    try {
+      await deleteAllSubscriptionsFromSupabase(memberId);
+    } catch (deleteAllError: any) {
+      console.error('[Push Notification] Failed to delete all subscriptions:', deleteAllError);
+      // 不拋出錯誤，因為這只是清理操作
+    }
     
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Push Notification] Unsubscribe failed:', error);
-    throw error;
+    throw new Error(`取消訂閱失敗：${error.message || '未知錯誤'}`);
   }
 }
 

@@ -26,7 +26,7 @@ export async function createReservation(
     .eq('tournament_waitlist_id', tournamentWaitlistId)
     .eq('member_id', memberId)
     .eq('club_id', clubId)
-    .in('status', ['waiting', 'confirmed']); // Check for active reservations
+    .eq('status', 'waiting'); // Only treat 'waiting' as an active reservation for "already reserved?"
 
   if (checkError) {
     console.error('Error checking existing reservations:', checkError);
@@ -37,12 +37,12 @@ export async function createReservation(
     throw new Error('您已經預約過此賽事');
   }
 
-  // Calculate queue_position: find max queue_position for this tournament_waitlist_id and add 1
+  // Calculate queue_position: find max queue_position for this tournament_waitlist_id (waiting only) and add 1
   const { data: maxQueueData, error: maxQueueError } = await supabase
     .from('reservation')
     .select('queue_position')
     .eq('tournament_waitlist_id', tournamentWaitlistId)
-    .in('status', ['waiting', 'confirmed']) // Only count active reservations
+    .eq('status', 'waiting') // Only count waiting reservations for queue ordering
     .not('queue_position', 'is', null) // Exclude null values
     .order('queue_position', { ascending: false })
     .limit(1);
@@ -89,27 +89,26 @@ export async function createReservation(
     throw new Error('建立預約失敗：無法創建預約記錄');
   }
 
-  // Trigger push notification for reservation created
-  try {
-    // Get tournament name for notification
-    const { data: tournamentData } = await supabase
-      .from('tournament_waitlist')
-      .select('name, scheduled_start_time')
-      .eq('id', tournamentWaitlistId)
-      .single();
+  // // Trigger push notification for reservation created
+  // try {
+  //   // Get tournament name for notification
+  //   const { data: tournamentData } = await supabase
+  //     .from('tournament_waitlist')
+  //     .select('name, scheduled_start_time')
+  //     .eq('id', tournamentWaitlistId)
+  //     .single();
 
-    const { sendPushNotification } = await import('./pushNotificationTrigger');
-    await sendPushNotification({
-      memberId,
-      notificationType: 'reservation_created',
-      tournamentId: tournamentWaitlistId,
-      tournamentName: tournamentData?.name || '賽事',
-      startTime: tournamentData?.scheduled_start_time
-    });
-  } catch (error) {
-    // Don't fail reservation creation if notification fails
-    console.error('[createReservation] Failed to send push notification:', error);
-  }
+  //   const { sendPushNotification } = await import('./pushNotificationTrigger');
+  //   await sendPushNotification({
+  //     memberId,
+  //     notificationType: 'reservation_created',
+  //     tournamentId: tournamentWaitlistId,
+  //     tournamentName: tournamentData?.name || '賽事',
+  //     startTime: tournamentData?.scheduled_start_time
+  //   });
+  //   // Don't fail reservation creation if notification fails
+  //   console.error('[createReservation] Failed to send push notification:', error);
+  // }
 
   return newReservation;
 }
@@ -212,7 +211,7 @@ export async function getReservationsByTournamentWaitlist(
     .from('reservation')
     .select('*')
     .eq('tournament_waitlist_id', tournamentWaitlistId)
-    .in('status', ['waiting', 'confirmed'])
+    .eq('status', 'waiting')
     .order('queue_position', { ascending: true, nullsFirst: false }) // Order by queue_position first
     .order('requested_at', { ascending: true }); // Then by requested_at as fallback
 
@@ -242,7 +241,7 @@ export async function getReservationsByMember(
     .from('reservation')
     .select('*')
     .eq('member_id', memberId)
-    .in('status', ['waiting', 'confirmed']); // Only active reservations
+    .eq('status', 'waiting'); // Only show waiting reservations as "reserved"
 
   if (clubId) {
     query = query.eq('club_id', clubId);
