@@ -223,6 +223,7 @@ export type Database = {
           nickname: string | null
           notes: string | null
           other_reference_code: string | null
+          pokerfans_id: string | null
           staff_discount: boolean | null
           updated_at: string | null
         }
@@ -248,6 +249,7 @@ export type Database = {
           nickname?: string | null
           notes?: string | null
           other_reference_code?: string | null
+          pokerfans_id?: string | null
           staff_discount?: boolean | null
           updated_at?: string | null
         }
@@ -273,6 +275,7 @@ export type Database = {
           nickname?: string | null
           notes?: string | null
           other_reference_code?: string | null
+          pokerfans_id?: string | null
           staff_discount?: boolean | null
           updated_at?: string | null
         }
@@ -310,6 +313,7 @@ export type Database = {
           nick_name: string | null
           notes: string | null
           password_hash: string | null
+          phone_country_code: string | null
           updated_at: string
         }
         Insert: {
@@ -328,6 +332,7 @@ export type Database = {
           nick_name?: string | null
           notes?: string | null
           password_hash?: string | null
+          phone_country_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -346,6 +351,7 @@ export type Database = {
           nick_name?: string | null
           notes?: string | null
           password_hash?: string | null
+          phone_country_code?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -875,7 +881,6 @@ export type Database = {
             | Database["public"]["Enums"]["tournament_placing_category"]
             | null
           prize_amount: number | null
-          queue_position: number | null
           requested_at: string
           signature_data: string | null
           signature_signed_at: string | null
@@ -901,7 +906,6 @@ export type Database = {
             | Database["public"]["Enums"]["tournament_placing_category"]
             | null
           prize_amount?: number | null
-          queue_position?: number | null
           requested_at: string
           signature_data?: string | null
           signature_signed_at?: string | null
@@ -927,7 +931,6 @@ export type Database = {
             | Database["public"]["Enums"]["tournament_placing_category"]
             | null
           prize_amount?: number | null
-          queue_position?: number | null
           requested_at?: string
           signature_data?: string | null
           signature_signed_at?: string | null
@@ -1103,6 +1106,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: number
+          is_credit: boolean
           member_id: number
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -1123,6 +1127,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: number
+          is_credit: boolean
           member_id: number
           notes?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -1143,6 +1148,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: number
+          is_credit?: boolean
           member_id?: number
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
@@ -1217,7 +1223,7 @@ export type Database = {
         | "paid"
         | "bubble"
         | "eliminated"
-      tournament_player_status: "active" | "eliminated" | "cancelled"
+      tournament_player_status: "active" | "completed" | "cancelled"
       tournament_status:
         | "scheduled"
         | "registration"
@@ -1242,8 +1248,6 @@ export type Database = {
         | "refund"
         | "adjustment"
         | "bonus"
-        | "fee"
-        | "commission"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1431,7 +1435,7 @@ export const Constants = {
         "bubble",
         "eliminated",
       ],
-      tournament_player_status: ["active", "eliminated", "cancelled"],
+      tournament_player_status: ["active", "completed", "cancelled"],
       tournament_status: [
         "scheduled",
         "registration",
@@ -1458,8 +1462,6 @@ export const Constants = {
         "refund",
         "adjustment",
         "bonus",
-        "fee",
-        "commission",
       ],
     },
   },

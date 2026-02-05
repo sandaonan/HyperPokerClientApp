@@ -248,42 +248,16 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
 
       setIsTesting(true);
       try {
-          const { sendPushNotification } = await import('../../services/pushNotificationTrigger');
-          await sendPushNotification({
-              memberId,
-              notificationType: 'reservation_created',
-              tournamentName: '測試賽事',
-              startTime: new Date().toISOString()
-          });
-          
-          // 檢查 Service Worker 狀態
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          const activeSW = registrations.find(reg => reg.active);
-          const swState = activeSW ? (activeSW.active?.state || 'unknown') : 'not found';
-          
-          // 顯示診斷資訊
-          const diagnosticInfo = [
-              '✅ 測試通知已發送',
-              '',
-              '診斷資訊：',
-              `• 通知權限：${permission}`,
-              `• Service Worker：已註冊 (狀態: ${swState})`,
-              `• 推播訂閱：已訂閱`,
-              `• 當前 URL：${window.location.origin}`,
-              '',
-              '如果沒有收到通知，請檢查：',
-              '1. 打開瀏覽器控制台（F12），查看是否有',
-              '   "[Service Worker] 🔔 Push event received!" 日誌',
-              '2. 如果沒有日誌，表示 Service Worker 未收到推送',
-              '3. 檢查瀏覽器是否允許通知（系統設定）',
-              '4. 是否開啟了「勿擾模式」',
-              '5. 瀏覽器是否在背景執行',
-              '',
-              '💡 提示：通知權限是基於 origin 的，',
-              '   不需要包含完整路徑，localhost:3000 即可'
-          ].join('\n');
-          
-          await showAlert('測試通知已發送', diagnosticInfo);
+          // Notification functionality disabled
+          // const { sendPushNotification } = await import('../../services/pushNotificationTrigger');
+          // await sendPushNotification({
+          //     memberId,
+          //     notificationType: 'reservation_created',
+          //     tournamentName: '測試賽事',
+          //     startTime: new Date().toISOString()
+          // });
+          // 測試通知已發送，不顯示 pop up
+          await showAlert('通知功能已停用', '推播通知功能目前暫時停用');
       } catch (e: any) {
           console.error('[StatsView] Error testing notification:', e);
           await showAlert('測試失敗', e.message || '無法發送測試通知');
@@ -659,7 +633,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ userId, onNavigateTourname
                                             </div>
                                             {/* Buy-in count */}
                                             <div className={`text-[10px] ${THEME.textSecondary} mt-0.5`}>
-                                                Buy-in: ${game.buyIn.toLocaleString()} {game.entryCount > 1 ? `(${game.entryCount}次)` : ''}
+                                                報名費: ${game.buyIn.toLocaleString()} {game.entryCount > 1 ? `(${game.entryCount}次)` : ''}
                                             </div>
                                         </div>
                                     </div>

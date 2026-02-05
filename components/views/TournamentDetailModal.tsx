@@ -9,7 +9,7 @@ import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
 import { THEME } from '../../theme';
 import { isSupabaseClub } from '../../services/mockApi';
-import { getPaidPlayersByWaitlistId, TournamentPaidData } from '../../services/supabaseTournamentPaid';
+import { getPaidPlayersByWaitlistId, TournamentPaidData, getTableNumberForMember, isMemberInTournamentPlayer } from '../../services/supabaseTournamentPaid';
 import { supabase, isSupabaseAvailable } from '../../lib/supabaseClient';
 
 interface TournamentDetailModalProps {
@@ -34,12 +34,17 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
   const [playerList, setPlayerList] = useState<Registration[]>([]);
   const [listTab, setListTab] = useState<'reserved' | 'paid'>('reserved');
   const [isPromoExpanded, setIsPromoExpanded] = useState(false);
+  const [userTableTournamentId, setUserTableTournamentId] = useState<number | null>(null); // Track which tournament the user is in
   // State for paid tournaments (from tournament table)
   const [paidTournaments, setPaidTournaments] = useState<TournamentPaidData[]>([]);
   const [paidTournamentsLoading, setPaidTournamentsLoading] = useState(false);
   // Loading state for reservation actions
   const [isReserving, setIsReserving] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  // State for user's table number
+  const [userTableNumber, setUserTableNumber] = useState<number | null>(null);
+  // State for checking if user is in tournament_player
+  const [isUserInTournamentPlayer, setIsUserInTournamentPlayer] = useState<boolean>(false);
 
   // Mock paid tournaments for Hyper 協會 (c-1) - for demo purposes
   const getMockPaidTournaments = (tournamentId: string): TournamentPaidData[] => {
@@ -86,11 +91,13 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
               const startTimeObj = new Date(tournament.startTime);
               const isEnded = startTimeObj.getTime() < new Date().getTime();
               
+              // Only auto-set tab on initial load, don't reset if user manually changed it
+              // Use a ref or state to track if this is initial load
               if (isEnded || tournament.isLateRegEnded) {
+                  // For ended tournaments, always show paid tab
                   setListTab('paid');
-              } else {
-                  setListTab('reserved');
               }
+              // For active tournaments, keep current tab (don't auto-reset)
           });
 
           // Fetch paid tournaments from tournament table (only for Supabase clubs)
@@ -117,11 +124,50 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
               const mockData = getMockPaidTournaments(tournament.id);
               setPaidTournaments(mockData);
           }
+
+          // Fetch user's table number and check if user is in tournament_player
+          if (userWallet && isSupabaseClub(tournament.clubId)) {
+              const tournamentWaitlistId = parseInt(tournament.id);
+              const clubId = parseInt(tournament.clubId);
+              const userId = userWallet.userId;
+              
+              if (!isNaN(tournamentWaitlistId) && !isNaN(clubId) && userId) {
+                  // Get all tournaments from this waitlist and find user's table number
+                  (async () => {
+                      try {
+                          const memberId = parseInt(userId);
+                          if (!isNaN(memberId)) {
+                              // Check if user is in tournament_player
+                              const isInPlayer = await isMemberInTournamentPlayer(tournamentWaitlistId, clubId, memberId);
+                              setIsUserInTournamentPlayer(isInPlayer);
+                              
+                              if (isInPlayer) {
+                                  // Get tournaments and find user's table number
+                                  const tournaments = await getPaidPlayersByWaitlistId(tournamentWaitlistId, clubId);
+                                  
+                                  // Try to find user's table number in any of these tournaments
+                                  for (const t of tournaments) {
+                                      const tableNumber = await getTableNumberForMember(t.tournamentId, memberId);
+                                      if (tableNumber !== null) {
+                                          setUserTableNumber(tableNumber);
+                                          setUserTableTournamentId(t.tournamentId); // Track which tournament
+                                          break;
+                                      }
+                                  }
+                              }
+                          }
+                      } catch (error) {
+                          console.error('Failed to fetch user tournament status:', error);
+                      }
+                  })();
+              }
+          }
       } else {
           setPlayerList([]);
           setPaidTournaments([]);
+          setUserTableNumber(null);
       }
-  }, [tournament]);
+  }, [tournament, userWallet]);
 
   // Live updates while modal is open (Supabase clubs):
   // - Realtime subscription to reservation changes for this tournament_waitlist_id
@@ -138,7 +184,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
 
       let isCancelled = false;
 
-      const refreshLists = async () => {
+      const refreshLists = async (includePaidTournaments: boolean = false) => {
           try {
               const regs = await mockApi.getTournamentRegistrations(tournament.id);
               if (!isCancelled) setPlayerList(regs);
@@ -147,20 +193,23 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
               console.warn('[TournamentDetailModal] Failed to refresh registrations:', e);
           }
 
-          try {
-              setPaidTournamentsLoading(true);
-              const data = await getPaidPlayersByWaitlistId(tournamentWaitlistId, clubId);
-              if (!isCancelled) setPaidTournaments(data);
-          } catch (e) {
-              console.warn('[TournamentDetailModal] Failed to refresh paid tournaments:', e);
-              if (!isCancelled) setPaidTournaments([]);
-          } finally {
-              if (!isCancelled) setPaidTournamentsLoading(false);
+          // Only refresh paid tournaments if explicitly requested (initial load only)
+          if (includePaidTournaments) {
+              try {
+                  setPaidTournamentsLoading(true);
+                  const data = await getPaidPlayersByWaitlistId(tournamentWaitlistId, clubId);
+                  if (!isCancelled) setPaidTournaments(data);
+              } catch (e) {
+                  console.warn('[TournamentDetailModal] Failed to refresh paid tournaments:', e);
+                  if (!isCancelled) setPaidTournaments([]);
+              } finally {
+                  if (!isCancelled) setPaidTournamentsLoading(false);
+              }
           }
       };
 
-      // Initial refresh on open
-      refreshLists();
+      // Initial refresh on open - include paid tournaments only once
+      refreshLists(true);
 
       const channel = supabase
         .channel(`tw-${tournamentWaitlistId}-reservations`)
@@ -173,27 +222,40 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
             filter: `tournament_waitlist_id=eq.${tournamentWaitlistId}`,
           },
           () => {
-            // Reservation created/updated/cancelled -> refresh list
-            refreshLists();
+            // Reservation created/updated/cancelled -> refresh list (only for reserved tab)
+            // Don't refresh paid tournaments list automatically
+            if (listTab === 'reserved') {
+                refreshLists(false); // Don't refresh paid tournaments
+            } else {
+                // Only refresh player list, not paid tournaments
+                mockApi.getTournamentRegistrations(tournament.id).then((regs) => {
+                    if (!isCancelled) setPlayerList(regs);
+                }).catch(() => {});
+            }
           }
         )
         .subscribe();
 
-      // Fallback polling (lightweight) for resilience
-      const intervalId = window.setInterval(() => {
-          refreshLists();
-      }, 10000);
+      // Don't use polling for paid tournaments - they don't change frequently
+      // Only poll for reserved list if needed
+      const intervalId = listTab === 'reserved' ? window.setInterval(() => {
+          if (listTab === 'reserved') {
+              mockApi.getTournamentRegistrations(tournament.id).then((regs) => {
+                  if (!isCancelled) setPlayerList(regs);
+              }).catch(() => {});
+          }
+      }, 10000) : null;
 
       return () => {
           isCancelled = true;
-          window.clearInterval(intervalId);
+          if (intervalId) window.clearInterval(intervalId);
           try {
               supabase.removeChannel(channel);
           } catch (e) {
               // ignore cleanup errors
           }
       };
-  }, [tournament]);
+  }, [tournament, listTab]);
 
   if (!tournament) return null;
 
@@ -393,7 +455,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                     onClick={() => setListTab('paid')}
                     className={`flex-1 py-2 text-xs font-bold transition-colors ${listTab === 'paid' ? 'bg-brand-green/40 text-brand-green' : `${THEME.textSecondary} ${THEME.cardHover}`}`}
                  >
-                    {isEnded ? `參賽名單` : `已繳費 (${totalPaidCount})`}
+                    {isEnded ? `參賽名單` : `參賽中 (${totalPaidCount})`}
                  </button>
              </div>
 
@@ -456,11 +518,23 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                                  ? `${t.playerCount}/${t.maxPlayers}`
                                                  : `${t.playerCount}`;
                                              
+                                             // Check if user is in this tournament's table
+                                             const isUserInThisTable = userTableTournamentId === t.tournamentId && userTableNumber !== null;
+                                             
                                              return (
                                                  <div 
                                                      key={t.tournamentId} 
-                                                     className={`flex items-center justify-between p-2 rounded ${THEME.card} border ${THEME.border}`}
+                                                     className={`flex items-center justify-between p-2 rounded ${THEME.card} border ${
+                                                         isUserInThisTable 
+                                                             ? 'border-brand-green border-2 bg-brand-green/5' 
+                                                             : THEME.border
+                                                     } relative`}
                                                  >
+                                                     {isUserInThisTable && (
+                                                         <div className="absolute -top-1.5 right-1 bg-brand-green text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-brand-green whitespace-nowrap z-10 shadow-lg">
+                                                             您在這桌
+                                                         </div>
+                                                     )}
                                                      <div className="flex items-center gap-2 flex-1 min-w-0">
                                                          <Trophy size={14} className={THEME.accent} />
                                                          <div className="flex flex-col flex-1 min-w-0">
@@ -546,6 +620,17 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                              <div className={`flex items-center justify-center gap-2 ${THEME.textSecondary} text-sm`}>
                                  <Lock size={14} /> 報名已截止
                              </div>
+                         ) : isUserInTournamentPlayer ? (
+                             // User is in tournament_player - show "參賽中" button (disabled, gray)
+                             <Button 
+                                 type="button" 
+                                 fullWidth 
+                                 variant="outline" 
+                                 disabled={true}
+                                 className="h-10 border-gray-500/30 text-gray-400 bg-gray-500/10 cursor-not-allowed"
+                             >
+                                 <span className="text-sm font-bold">參賽中</span>
+                             </Button>
                          ) : userHasReservation ? (
                              // User already has reservation - show cancel button
                              <Button 
@@ -670,7 +755,7 @@ export const TournamentDetailModal: React.FC<TournamentDetailModalProps> = ({
                                   {isCutoff && (
                                       <tr className="bg-red-500/5 border-t border-b border-red-500/20">
                                           <td colSpan={4} className="p-2 text-center text-xs text-red-400/80 font-medium">
-                                              🛑 截止買入 (Cut-off) - {cutoffStr}
+                                              🛑 截止報名費 (Cut-off) - {cutoffStr}
                                           </td>
                                       </tr>
                                   )}

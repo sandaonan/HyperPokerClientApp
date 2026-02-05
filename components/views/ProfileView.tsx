@@ -5,13 +5,15 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Header } from '../ui/Header';
 import { Modal } from '../ui/Modal';
-import { User, Wallet } from '../../types';
+import { User, Wallet, Club, MembershipStatus } from '../../types';
 import { SEED_CLUBS, GAME_HISTORY } from '../../constants';
 import { mockApi } from '../../services/mockApi';
 import { useAlert } from '../../contexts/AlertContext';
 import { THEME } from '../../theme';
 import { isSupabaseClub } from '../../services/mockApi';
-import { getTransactionsByMember, Transaction } from '../../services/supabaseTransaction';
+import { getTransactionsByMember, Transaction, getTransactionSymbol, getTransactionTypeName } from '../../services/supabaseTransaction';
+import { getClubByIdFromSupabase } from '../../services/supabaseClub';
+import { isSupabaseAvailable } from '../../lib/supabaseClient';
 import JsBarcode from 'jsbarcode';
 
 interface ProfileViewProps {
@@ -191,7 +193,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   const [kycUploaded, setKycUploaded] = useState(user.kycUploaded || false);
   const [activeTab, setActiveTab] = useState<'info' | 'club'>('info');
   const [myWallets, setMyWallets] = useState<Wallet[]>([]);
-  const [isEditingIdentity, setIsEditingIdentity] = useState(!user.isProfileComplete); 
+  const [isEditingIdentity, setIsEditingIdentity] = useState(!user.isProfileComplete);
+  const [supabaseClubs, setSupabaseClubs] = useState<Map<string, Club>>(new Map()); // Cache for Supabase clubs 
   
   // Membership Card Modal
   const [showMemberCard, setShowMemberCard] = useState<string | null>(null); // Store Club ID
@@ -223,10 +226,125 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
   useEffect(() => {
       const fetchWallets = async () => {
           try {
-              // Fetch all wallets for the user to list all clubs
+              // For Supabase users, fetch directly from club_member table
+              if (isSupabaseAvailable() && user.id && user.id !== 'guest') {
+                  const memberId = parseInt(user.id);
+                  if (!isNaN(memberId)) {
+                      try {
+                          // 1. Get all club_member records for this member
+                          const { getUserClubMemberships } = await import('../../services/supabaseClubMember');
+                          const memberships = await getUserClubMemberships(memberId);
+                          
+                          console.log('[ProfileView] Fetched club memberships:', memberships);
+                          
+                          // 2. For each membership, get club details and calculate balance
+                          const wallets: Wallet[] = [];
+                          const clubsMap = new Map<string, Club>();
+                          
+                          for (const membership of memberships) {
+                              // Get club details
+                              const clubIdStr = membership.club_id.toString();
+                              let club: Club | undefined = SEED_CLUBS.find(c => c.id === clubIdStr);
+                              
+                              if (!club) {
+                                  // Fetch from Supabase
+                                  try {
+                                      const clubIdNum = parseInt(clubIdStr);
+                                      if (!isNaN(clubIdNum)) {
+                                          club = await getClubByIdFromSupabase(clubIdNum);
+                                          if (club) {
+                                              clubsMap.set(clubIdStr, club);
+                                          }
+                                      }
+                                  } catch (error) {
+                                      console.error(`Failed to fetch club ${clubIdStr}:`, error);
+                                  }
+                              }
+                              
+                              // Skip if club not found
+                              if (!club) {
+                                  console.warn(`Club ${clubIdStr} not found, skipping`);
+                                  continue;
+                              }
+                              
+                              // Calculate balance from transactions
+                              const { getBalanceFromTransactions } = await import('../../services/supabaseTransaction');
+                              const balance = await getBalanceFromTransactions(membership.club_id, memberId);
+                              
+                              // Map member_status to Wallet status
+                              let status: MembershipStatus = 'applying';
+                              if (membership.member_status === 'activated') {
+                                  status = 'active';
+                              } else if (membership.member_status === 'deactivated') {
+                                  status = 'banned';
+                              } else if (membership.member_status === 'pending_approval') {
+                                  status = 'applying';
+                              }
+                              
+                              // Map kyc_status
+                              let kycStatus: 'verified' | 'unverified' | null = null;
+                              if (membership.kyc_status === 'verified') {
+                                  kycStatus = 'verified';
+                              } else if (membership.kyc_status === 'unverified') {
+                                  kycStatus = 'unverified';
+                              }
+                              
+                              wallets.push({
+                                  userId: user.id,
+                                  clubId: clubIdStr,
+                                  balance: balance,
+                                  points: 0, // Points not implemented yet
+                                  joinDate: membership.joined_date || new Date().toISOString(),
+                                  status: status,
+                                  kycStatus: kycStatus,
+                              });
+                          }
+                          
+                          // Also include mock wallets for mock clubs
+                          const mockWallets = await mockApi.getAllWallets(user.id);
+                          const mockOnlyWallets = mockWallets.filter(w => 
+                              w.userId === user.id && 
+                              !isSupabaseClub(w.clubId) // Only mock clubs
+                          );
+                          
+                          setMyWallets([...wallets, ...mockOnlyWallets]);
+                          setSupabaseClubs(clubsMap);
+                          return;
+                      } catch (error) {
+                          console.error('[ProfileView] Failed to fetch from Supabase, falling back to mockApi:', error);
+                          // Continue to fallback logic below
+                      }
+                  }
+              }
+              
+              // Fallback to mockApi for non-Supabase users or if Supabase fetch fails
               const w = await mockApi.getAllWallets(user.id);
               setMyWallets(w);
-          } catch(e) {}
+              
+              // Fetch club details for Supabase clubs that are not in SEED_CLUBS
+              if (isSupabaseAvailable()) {
+                  const clubsMap = new Map<string, Club>();
+                  for (const wallet of w) {
+                      // Check if it's a Supabase club and not in SEED_CLUBS
+                      if (isSupabaseClub(wallet.clubId) && !SEED_CLUBS.find(c => c.id === wallet.clubId)) {
+                          try {
+                              const clubIdNum = parseInt(wallet.clubId);
+                              if (!isNaN(clubIdNum)) {
+                                  const club = await getClubByIdFromSupabase(clubIdNum);
+                                  if (club) {
+                                      clubsMap.set(wallet.clubId, club);
+                                  }
+                              }
+                          } catch (error) {
+                              console.error(`Failed to fetch club ${wallet.clubId}:`, error);
+                          }
+                      }
+                  }
+                  setSupabaseClubs(clubsMap);
+              }
+          } catch(e) {
+              console.error('Failed to fetch wallets:', e);
+          }
       };
       if(activeTab === 'club') fetchWallets();
   }, [activeTab, user.id]);
@@ -577,7 +695,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
       }
   };
 
-  const getClubDetails = (clubId: string) => SEED_CLUBS.find(c => c.id === clubId);
+  const getClubDetails = (clubId: string): Club | undefined => {
+      // First check SEED_CLUBS
+      const seedClub = SEED_CLUBS.find(c => c.id === clubId);
+      if (seedClub) return seedClub;
+      
+      // Then check Supabase clubs cache
+      return supabaseClubs.get(clubId);
+  };
 
   // Selected Wallet for Modal
   const selectedWallet = myWallets.find(w => w.clubId === showMemberCard);
@@ -625,7 +750,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
           </button>
         </div>
         <div>
-           <h3 className={`text-xl font-bold ${THEME.textPrimary}`}>{nickname || user.name || "新玩家"}</h3>
+           <h3 className={`text-xl font-bold ${THEME.textPrimary}`}>{nickname || user.name || "新選手"}</h3>
            <p className={`text-sm font-medium ${user.isProfileComplete ? THEME.accent : THEME.textSecondary}`}>
                {user.isProfileComplete ? '✨ 已填寫實名資料' : '未完成設置'}
            </p>
@@ -1019,7 +1144,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
             <div className={`w-full ${THEME.card} rounded-xl p-4 border ${THEME.border} space-y-3`}>
                 <div className={`flex justify-between items-center border-b ${THEME.border} pb-2`}>
                     <span className={`text-sm ${THEME.textSecondary}`}>預繳報名費餘額</span>
-                    <span className={`font-mono font-bold ${THEME.textPrimary}`}>${selectedWallet?.balance?.toLocaleString?.() ?? 0}</span>
+                    <span className={`font-mono font-bold ${THEME.textPrimary}`}>
+                        ${(selectedWallet?.balance ?? 0).toLocaleString()}
+                    </span>
                 </div>
                 
                 {/* 6points Section */}
@@ -1124,52 +1251,76 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdateUser, on
                             ) : transactions.length === 0 ? (
                                 <div className={`text-center py-4 ${THEME.textSecondary} text-xs`}>尚無交易記錄</div>
                             ) : (
-                                transactions.map((txn, index) => (
-                                    <div
-                                        key={txn.id}
-                                        className={`py-2.5 ${index < transactions.length - 1 ? `border-b ${THEME.border}` : ''}`}
-                                    >
-                                        <div className="flex justify-between items-start gap-2">
-                                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                {txn.type === 'deposit' ? (
-                                                    <ArrowDown size={14} className="text-green-400 shrink-0" />
-                                                ) : (
-                                                    <ArrowUp size={14} className="text-red-400 shrink-0" />
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className={`text-sm ${THEME.textPrimary} font-medium`}>
-                                                        {txn.type === 'deposit' ? '儲值' : '提領'}
+                                transactions.map((txn, index) => {
+                                    const symbol = getTransactionSymbol(txn.type);
+                                    const typeName = getTransactionTypeName(txn.type);
+                                    const isInflow = symbol === '+';
+                                    const isOutflow = symbol === '-';
+                                    
+                                    // 根據符號決定顏色和圖標
+                                    let iconColor = 'text-gray-400';
+                                    let amountColor = 'text-gray-400';
+                                    let IconComponent: typeof ArrowDown | typeof ArrowUp = ArrowDown;
+                                    
+                                    if (isInflow) {
+                                        iconColor = 'text-green-400';
+                                        amountColor = 'text-green-400';
+                                        IconComponent = ArrowDown;
+                                    } else if (isOutflow) {
+                                        iconColor = 'text-red-400';
+                                        amountColor = 'text-red-400';
+                                        IconComponent = ArrowUp;
+                                    } else {
+                                        // Flexible (adjustment)
+                                        iconColor = 'text-yellow-400';
+                                        amountColor = 'text-yellow-400';
+                                        IconComponent = txn.amount >= 0 ? ArrowDown : ArrowUp;
+                                    }
+                                    
+                                    return (
+                                        <div
+                                            key={txn.id}
+                                            className={`py-2.5 ${index < transactions.length - 1 ? `border-b ${THEME.border}` : ''}`}
+                                        >
+                                            <div className="flex justify-between items-start gap-2">
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <IconComponent size={14} className={`${iconColor} shrink-0`} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={`text-sm ${THEME.textPrimary} font-medium`}>
+                                                            {typeName}
+                                                        </div>
+                                                        {txn.description && (
+                                                            <div className={`text-xs ${THEME.textSecondary} mt-0.5`}>
+                                                                {txn.description}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {txn.description && (
-                                                        <div className={`text-xs ${THEME.textSecondary} mt-0.5`}>
-                                                            {txn.description}
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                    <span
+                                                        className={`text-sm font-mono font-bold ${amountColor}`}
+                                                    >
+                                                        {symbol === '+/-' 
+                                                            ? (txn.amount >= 0 ? '+' : '-') 
+                                                            : symbol
+                                                        }${Math.abs(txn.amount).toLocaleString()}
+                                                    </span>
+                                                    {txn.completed_at && (
+                                                        <div className={`text-[10px] ${THEME.textSecondary} opacity-60`}>
+                                                            {new Date(txn.completed_at).toLocaleString('zh-TW', {
+                                                                year: 'numeric',
+                                                                month: '2-digit',
+                                                                day: '2-digit',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit',
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col items-end gap-1 shrink-0">
-                                                <span
-                                                    className={`text-sm font-mono font-bold ${
-                                                        txn.type === 'deposit' ? 'text-green-400' : 'text-red-400'
-                                                    }`}
-                                                >
-                                                    {txn.type === 'deposit' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString()}
-                                                </span>
-                                                {txn.completed_at && (
-                                                    <div className={`text-[10px] ${THEME.textSecondary} opacity-60`}>
-                                                        {new Date(txn.completed_at).toLocaleString('zh-TW', {
-                                                            year: 'numeric',
-                                                            month: '2-digit',
-                                                            day: '2-digit',
-                                                            hour: '2-digit',
-                                                            minute: '2-digit',
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     )}

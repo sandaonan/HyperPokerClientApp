@@ -93,3 +93,111 @@ export async function getTotalPaidPlayersCount(
   return tournaments.reduce((sum, t) => sum + t.playerCount, 0);
 }
 
+/**
+ * Get table number for a specific member in a tournament
+ * @param tournamentId - The tournament ID
+ * @param memberId - The member ID
+ * @returns Table number if found, null otherwise
+ */
+export async function getTableNumberForMember(
+  tournamentId: number,
+  memberId: number
+): Promise<number | null> {
+  if (!isSupabaseAvailable() || !supabase) {
+    return null;
+  }
+
+  try {
+    // 1. Find tournament_player record
+    const { data: tournamentPlayer, error: playerError } = await supabase
+      .from('tournament_player')
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .single();
+
+    if (playerError || !tournamentPlayer) {
+      return null;
+    }
+
+    // 2. Find tournament_tables record
+    const { data: tournamentTable, error: tableError } = await supabase
+      .from('tournament_tables')
+      .select('table_id')
+      .eq('tournament_id', tournamentId)
+      .eq('is_active', true)
+      .single();
+
+    if (tableError || !tournamentTable || !tournamentTable.table_id) {
+      return null;
+    }
+
+    // 3. Get table number from tables table
+    const { data: table, error: tableNumberError } = await supabase
+      .from('tables')
+      .select('table_number')
+      .eq('id', tournamentTable.table_id)
+      .single();
+
+    if (tableNumberError || !table) {
+      return null;
+    }
+
+    return table.table_number;
+  } catch (error) {
+    console.error('Error fetching table number:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if a member is in tournament_player table for any tournament from a waitlist
+ * @param tournamentWaitlistId - The tournament waitlist ID
+ * @param clubId - The club ID
+ * @param memberId - The member ID
+ * @returns true if member is in tournament_player, false otherwise
+ */
+export async function isMemberInTournamentPlayer(
+  tournamentWaitlistId: number,
+  clubId: number,
+  memberId: number
+): Promise<boolean> {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  try {
+    // 1. Find all tournaments created from this waitlist
+    const { data: tournaments, error: tournamentsError } = await supabase
+      .from('tournament')
+      .select('id')
+      .eq('from_waitlist_id', tournamentWaitlistId)
+      .eq('club_id', clubId);
+
+    if (tournamentsError || !tournaments || tournaments.length === 0) {
+      return false;
+    }
+
+    // 2. Check if member is in tournament_player for any of these tournaments
+    const tournamentIds = tournaments.map(t => t.id);
+    const { data: tournamentPlayer, error: playerError } = await supabase
+      .from('tournament_player')
+      .select('id')
+      .in('tournament_id', tournamentIds)
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .limit(1);
+
+    if (playerError) {
+      console.error('Error checking tournament player:', playerError);
+      return false;
+    }
+
+    return tournamentPlayer && tournamentPlayer.length > 0;
+  } catch (error) {
+    console.error('Error checking if member is in tournament player:', error);
+    return false;
+  }
+}
+
